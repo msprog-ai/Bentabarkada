@@ -5,30 +5,46 @@ import { CategoryFilter } from '@/components/CategoryFilter';
 import { ListingCard } from '@/components/ListingCard';
 import { ListingDetail } from '@/components/ListingDetail';
 import { PostItemForm } from '@/components/PostItemForm';
-import { mockListings } from '@/data/mockData';
+import { ChatBot } from '@/components/ChatBot';
+import { useListings } from '@/hooks/useListings';
+import { useAuth } from '@/hooks/useAuth';
 import { ListingItem } from '@/types/marketplace';
+import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
 
 const Index = () => {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { listings, loading, refetch } = useListings();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedItem, setSelectedItem] = useState<ListingItem | null>(null);
   const [showPostForm, setShowPostForm] = useState(false);
 
   const filteredListings = useMemo(() => {
-    return mockListings.filter((item) => {
+    return listings.filter((item) => {
       const matchesSearch = item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         item.description.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesCategory = selectedCategory === 'all' || item.category === selectedCategory;
       return matchesSearch && matchesCategory;
     });
-  }, [searchQuery, selectedCategory]);
+  }, [searchQuery, selectedCategory, listings]);
+
+  const handlePostClick = () => {
+    if (!user) {
+      toast.error('Please sign in to post an item');
+      navigate('/auth');
+      return;
+    }
+    setShowPostForm(true);
+  };
 
   return (
     <div className="min-h-screen bg-background">
       <Navbar
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
-        onPostClick={() => setShowPostForm(true)}
+        onPostClick={handlePostClick}
       />
 
       <HeroSection />
@@ -53,7 +69,11 @@ const Index = () => {
         </div>
 
         {/* Listings Grid */}
-        {filteredListings.length > 0 ? (
+        {loading ? (
+          <div className="text-center py-16">
+            <p className="text-muted-foreground">Loading listings...</p>
+          </div>
+        ) : filteredListings.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {filteredListings.map((item, index) => (
               <div key={item.id} style={{ animationDelay: `${index * 0.05}s` }}>
@@ -78,7 +98,15 @@ const Index = () => {
       )}
 
       {/* Post Item Form */}
-      {showPostForm && <PostItemForm onClose={() => setShowPostForm(false)} />}
+      {showPostForm && (
+        <PostItemForm 
+          onClose={() => setShowPostForm(false)} 
+          onSuccess={refetch}
+        />
+      )}
+
+      {/* AI Chatbot */}
+      <ChatBot />
     </div>
   );
 };
