@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
+import { CartSheet } from '@/components/CartSheet';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -53,6 +54,8 @@ export const Navbar = ({ searchQuery, onSearchChange, onPostClick }: NavbarProps
               <span className="hidden sm:inline">Sell</span>
             </Button>
 
+            <CartSheet />
+
             {user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -63,6 +66,10 @@ export const Navbar = ({ searchQuery, onSearchChange, onPostClick }: NavbarProps
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem className="text-muted-foreground text-sm">
                     {user.email}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate('/profile')}>
+                    <User className="w-4 h-4 mr-2" />
+                    My Profile
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={signOut}>
                     <LogOut className="w-4 h-4 mr-2" />

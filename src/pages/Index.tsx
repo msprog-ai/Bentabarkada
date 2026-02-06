@@ -94,7 +94,11 @@ const Index = () => {
 
       {/* Item Detail Modal */}
       {selectedItem && (
-        <ListingDetail item={selectedItem} onClose={() => setSelectedItem(null)} />
+        <ListingDetail 
+          item={selectedItem} 
+          onClose={() => setSelectedItem(null)} 
+          sellerId={selectedItem.seller.id}
+        />
       )}
 
       {/* Post Item Form */}
