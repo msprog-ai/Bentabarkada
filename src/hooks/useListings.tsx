@@ -47,6 +47,7 @@ export const useListings = () => {
             location: listing.location,
             image: listing.image_url || 'https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=400&h=400&fit=crop',
             seller: {
+              id: listing.user_id,
               name: profile?.display_name || 'Anonymous',
               avatar: profile?.avatar_url || `https://i.pravatar.cc/100?u=${listing.user_id}`,
               rating: Number(profile?.rating) || 5.0,
@@ -71,3 +72,4 @@ export const useListings = () => {
 
   return { listings, loading, refetch: fetchListings };
 };
+

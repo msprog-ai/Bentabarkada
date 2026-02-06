@@ -7,6 +7,7 @@ export interface ListingItem {
   category: string;
   location: string;
   seller: {
+    id?: string;
     name: string;
     avatar: string;
     rating: number;
