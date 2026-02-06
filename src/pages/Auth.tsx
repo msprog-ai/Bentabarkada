@@ -76,7 +76,7 @@ const Auth = () => {
     <div className="min-h-screen bg-background flex items-center justify-center px-4">
       <div className="w-full max-w-md space-y-8">
         <div className="text-center">
-          <h1 className="text-3xl font-bold text-gradient">MarketHub</h1>
+          <h1 className="text-3xl font-bold text-gradient tracking-tight">Carti</h1>
           <p className="mt-2 text-muted-foreground">
             {isLogin ? 'Sign in to your account' : 'Create your account'}
           </p>
