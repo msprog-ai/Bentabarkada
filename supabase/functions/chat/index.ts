@@ -18,7 +18,7 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    const systemPrompt = `You are a helpful marketplace assistant for MarketHub, a platform where users can buy and sell items. 
+    const systemPrompt = `You are a helpful marketplace assistant for Carti, a platform where users can buy and sell items. 
 
 Your role is to:
 - Help users find items they're looking for
