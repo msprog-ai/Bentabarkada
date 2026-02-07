@@ -14,6 +14,65 @@ export type Database = {
   }
   public: {
     Tables: {
+      addresses: {
+        Row: {
+          barangay: string | null
+          city: string
+          complete_address: string
+          created_at: string
+          delivery_zone_id: string | null
+          id: string
+          is_default: boolean
+          label: string
+          phone: string
+          postal_code: string | null
+          province: string
+          recipient_name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          barangay?: string | null
+          city: string
+          complete_address: string
+          created_at?: string
+          delivery_zone_id?: string | null
+          id?: string
+          is_default?: boolean
+          label?: string
+          phone: string
+          postal_code?: string | null
+          province: string
+          recipient_name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          barangay?: string | null
+          city?: string
+          complete_address?: string
+          created_at?: string
+          delivery_zone_id?: string | null
+          id?: string
+          is_default?: boolean
+          label?: string
+          phone?: string
+          postal_code?: string | null
+          province?: string
+          recipient_name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "addresses_delivery_zone_id_fkey"
+            columns: ["delivery_zone_id"]
+            isOneToOne: false
+            referencedRelation: "delivery_zones"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cart_items: {
         Row: {
           created_at: string
@@ -46,11 +105,38 @@ export type Database = {
           },
         ]
       }
+      delivery_zones: {
+        Row: {
+          base_fee: number
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          base_fee?: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          base_fee?: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       listings: {
         Row: {
           category: string
+          city: string | null
+          complete_address: string | null
           condition: string
           created_at: string
+          delivery_zone_id: string | null
           description: string
           id: string
           image_url: string | null
@@ -62,8 +148,11 @@ export type Database = {
         }
         Insert: {
           category: string
+          city?: string | null
+          complete_address?: string | null
           condition: string
           created_at?: string
+          delivery_zone_id?: string | null
           description: string
           id?: string
           image_url?: string | null
@@ -75,8 +164,11 @@ export type Database = {
         }
         Update: {
           category?: string
+          city?: string | null
+          complete_address?: string | null
           condition?: string
           created_at?: string
+          delivery_zone_id?: string | null
           description?: string
           id?: string
           image_url?: string | null
@@ -86,7 +178,15 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "listings_delivery_zone_id_fkey"
+            columns: ["delivery_zone_id"]
+            isOneToOne: false
+            referencedRelation: "delivery_zones"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       messages: {
         Row: {
@@ -126,12 +226,108 @@ export type Database = {
           },
         ]
       }
+      order_items: {
+        Row: {
+          created_at: string
+          id: string
+          listing_id: string
+          order_id: string
+          price: number
+          quantity: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          listing_id: string
+          order_id: string
+          price: number
+          quantity?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          listing_id?: string
+          order_id?: string
+          price?: number
+          quantity?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_items_listing_id_fkey"
+            columns: ["listing_id"]
+            isOneToOne: false
+            referencedRelation: "listings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_items_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orders: {
+        Row: {
+          address_id: string | null
+          buyer_id: string
+          created_at: string
+          delivery_fee: number
+          id: string
+          notes: string | null
+          payment_method: Database["public"]["Enums"]["payment_method"]
+          seller_id: string
+          status: Database["public"]["Enums"]["order_status"]
+          subtotal: number
+          total: number
+          updated_at: string
+        }
+        Insert: {
+          address_id?: string | null
+          buyer_id: string
+          created_at?: string
+          delivery_fee?: number
+          id?: string
+          notes?: string | null
+          payment_method: Database["public"]["Enums"]["payment_method"]
+          seller_id: string
+          status?: Database["public"]["Enums"]["order_status"]
+          subtotal: number
+          total: number
+          updated_at?: string
+        }
+        Update: {
+          address_id?: string | null
+          buyer_id?: string
+          created_at?: string
+          delivery_fee?: number
+          id?: string
+          notes?: string | null
+          payment_method?: Database["public"]["Enums"]["payment_method"]
+          seller_id?: string
+          status?: Database["public"]["Enums"]["order_status"]
+          subtotal?: number
+          total?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_address_id_fkey"
+            columns: ["address_id"]
+            isOneToOne: false
+            referencedRelation: "addresses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
           created_at: string
           display_name: string | null
           id: string
+          phone: string | null
           rating: number | null
           updated_at: string
           user_id: string
@@ -141,6 +337,7 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           id?: string
+          phone?: string | null
           rating?: number | null
           updated_at?: string
           user_id: string
@@ -150,6 +347,7 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           id?: string
+          phone?: string | null
           rating?: number | null
           updated_at?: string
           user_id?: string
@@ -164,7 +362,13 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      order_status:
+        | "pending"
+        | "confirmed"
+        | "shipped"
+        | "delivered"
+        | "cancelled"
+      payment_method: "gcash" | "maya" | "qr_ph" | "cod"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -291,6 +495,15 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      order_status: [
+        "pending",
+        "confirmed",
+        "shipped",
+        "delivered",
+        "cancelled",
+      ],
+      payment_method: ["gcash", "maya", "qr_ph", "cod"],
+    },
   },
 } as const

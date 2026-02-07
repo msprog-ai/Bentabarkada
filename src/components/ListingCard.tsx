@@ -64,7 +64,7 @@ export const ListingCard = ({ item, onClick }: ListingCardProps) => {
           </h3>
         </div>
         <p className="text-2xl font-bold text-foreground mb-3">
-          ${item.price.toLocaleString()}
+          ₱{item.price.toLocaleString()}
         </p>
         <div className="flex items-center gap-2 text-sm text-muted-foreground mb-3">
           <MapPin className="w-3.5 h-3.5" />

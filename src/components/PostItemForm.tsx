@@ -1,10 +1,12 @@
 import { useState, useRef } from 'react';
-import { X, Upload, DollarSign, Image as ImageIcon, Loader2 } from 'lucide-react';
+import { X, Upload, Image as ImageIcon, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
 import { categories } from '@/data/mockData';
+import { philippineCities, getDeliveryZoneByCity } from '@/data/philippineLocations';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -23,7 +25,10 @@ export const PostItemForm = ({ onClose, onSuccess }: PostItemFormProps) => {
     description: '',
     category: '',
     condition: '',
-    location: '',
+    city: '',
+    province: '',
+    barangay: '',
+    complete_address: '',
   });
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -67,6 +72,15 @@ export const PostItemForm = ({ onClose, onSuccess }: PostItemFormProps) => {
     return publicUrl;
   };
 
+  const handleCityChange = (city: string) => {
+    const cityData = philippineCities.find(c => c.name === city);
+    setFormData(prev => ({
+      ...prev,
+      city,
+      province: cityData?.province || ''
+    }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -75,7 +89,7 @@ export const PostItemForm = ({ onClose, onSuccess }: PostItemFormProps) => {
       return;
     }
 
-    if (!formData.category || !formData.condition) {
+    if (!formData.category || !formData.condition || !formData.city) {
       toast.error('Please fill in all required fields');
       return;
     }
@@ -89,6 +103,23 @@ export const PostItemForm = ({ onClose, onSuccess }: PostItemFormProps) => {
         imageUrl = await uploadImage(imageFile);
       }
 
+      // Get delivery zone
+      const zoneName = getDeliveryZoneByCity(formData.city);
+      let deliveryZoneId: string | null = null;
+      
+      if (zoneName) {
+        const { data: zone } = await supabase
+          .from('delivery_zones')
+          .select('id')
+          .eq('name', zoneName)
+          .single();
+        deliveryZoneId = zone?.id || null;
+      }
+
+      const location = formData.barangay 
+        ? `${formData.barangay}, ${formData.city}, ${formData.province}`
+        : `${formData.city}, ${formData.province}`;
+
       const { error } = await supabase.from('listings').insert({
         user_id: user.id,
         title: formData.title,
@@ -96,7 +127,10 @@ export const PostItemForm = ({ onClose, onSuccess }: PostItemFormProps) => {
         description: formData.description,
         category: formData.category,
         condition: formData.condition,
-        location: formData.location,
+        location: location,
+        city: formData.city,
+        complete_address: formData.complete_address || null,
+        delivery_zone_id: deliveryZoneId,
         image_url: imageUrl,
       });
 
@@ -130,7 +164,7 @@ export const PostItemForm = ({ onClose, onSuccess }: PostItemFormProps) => {
             </div>
 
             {/* Form */}
-            <form onSubmit={handleSubmit} className="p-6 space-y-5">
+            <form onSubmit={handleSubmit} className="p-6 space-y-5 max-h-[70vh] overflow-y-auto">
               {/* Image Upload */}
               <input
                 type="file"
@@ -165,7 +199,7 @@ export const PostItemForm = ({ onClose, onSuccess }: PostItemFormProps) => {
 
               {/* Title */}
               <div>
-                <label className="text-sm font-medium mb-2 block">Title</label>
+                <Label>Title *</Label>
                 <Input
                   placeholder="What are you selling?"
                   value={formData.title}
@@ -174,17 +208,17 @@ export const PostItemForm = ({ onClose, onSuccess }: PostItemFormProps) => {
                 />
               </div>
 
-              {/* Price */}
+              {/* Price in PHP */}
               <div>
-                <label className="text-sm font-medium mb-2 block">Price</label>
+                <Label>Price (PHP) *</Label>
                 <div className="relative">
-                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">₱</span>
                   <Input
                     type="number"
-                    placeholder="0.00"
+                    placeholder="0"
                     value={formData.price}
                     onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                    className="pl-9"
+                    className="pl-8"
                     required
                   />
                 </div>
@@ -193,7 +227,7 @@ export const PostItemForm = ({ onClose, onSuccess }: PostItemFormProps) => {
               {/* Category & Condition */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium mb-2 block">Category</label>
+                  <Label>Category *</Label>
                   <Select
                     value={formData.category}
                     onValueChange={(value) => setFormData({ ...formData, category: value })}
@@ -211,7 +245,7 @@ export const PostItemForm = ({ onClose, onSuccess }: PostItemFormProps) => {
                   </Select>
                 </div>
                 <div>
-                  <label className="text-sm font-medium mb-2 block">Condition</label>
+                  <Label>Condition *</Label>
                   <Select
                     value={formData.condition}
                     onValueChange={(value) => setFormData({ ...formData, condition: value })}
@@ -220,7 +254,7 @@ export const PostItemForm = ({ onClose, onSuccess }: PostItemFormProps) => {
                       <SelectValue placeholder="Select" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="new">New</SelectItem>
+                      <SelectItem value="new">Brand New</SelectItem>
                       <SelectItem value="like-new">Like New</SelectItem>
                       <SelectItem value="good">Good</SelectItem>
                       <SelectItem value="fair">Fair</SelectItem>
@@ -229,20 +263,50 @@ export const PostItemForm = ({ onClose, onSuccess }: PostItemFormProps) => {
                 </div>
               </div>
 
-              {/* Location */}
+              {/* Location - City */}
               <div>
-                <label className="text-sm font-medium mb-2 block">Location</label>
+                <Label>City *</Label>
+                <Select value={formData.city} onValueChange={handleCityChange}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select your city" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {philippineCities.map((city) => (
+                      <SelectItem key={`${city.name}-${city.province}`} value={city.name}>
+                        {city.name}, {city.province}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Barangay */}
+              <div>
+                <Label>Barangay (Optional)</Label>
                 <Input
-                  placeholder="City, State"
-                  value={formData.location}
-                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                  required
+                  placeholder="Enter barangay"
+                  value={formData.barangay}
+                  onChange={(e) => setFormData({ ...formData, barangay: e.target.value })}
                 />
+              </div>
+
+              {/* Complete Address */}
+              <div>
+                <Label>Complete Address (Optional)</Label>
+                <Textarea
+                  placeholder="House/Unit No., Street, Building, Landmark"
+                  value={formData.complete_address}
+                  onChange={(e) => setFormData({ ...formData, complete_address: e.target.value })}
+                  rows={2}
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  This will only be shared with buyers after purchase
+                </p>
               </div>
 
               {/* Description */}
               <div>
-                <label className="text-sm font-medium mb-2 block">Description</label>
+                <Label>Description *</Label>
                 <Textarea
                   placeholder="Describe your item in detail..."
                   value={formData.description}

@@ -90,7 +90,7 @@ export const ListingDetail = ({ item, onClose, sellerId }: ListingDetailProps) =
                     </div>
 
                     <p className="text-3xl font-bold text-gradient mb-4">
-                      ${item.price.toLocaleString()}
+                      ₱{item.price.toLocaleString()}
                     </p>
 
                     <div className="flex items-center gap-4 mb-6">
