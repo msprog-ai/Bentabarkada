@@ -1,4 +1,5 @@
 import { ShoppingCart, X, Minus, Plus, Trash2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import {
   Sheet,
@@ -6,17 +7,23 @@ import {
   SheetHeader,
   SheetTitle,
   SheetTrigger,
+  SheetClose,
 } from '@/components/ui/sheet';
 import { useCart } from '@/hooks/useCart';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 
 export const CartSheet = () => {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { cartItems, cartTotal, cartCount, removeFromCart, updateQuantity, clearCart, loading } = useCart();
 
   const handleCheckout = () => {
-    toast.info('Checkout functionality coming soon!');
+    if (cartItems.length === 0) {
+      toast.error('Your cart is empty');
+      return;
+    }
+    navigate('/checkout');
   };
 
   return (
@@ -67,7 +74,7 @@ export const CartSheet = () => {
                       <h4 className="font-medium truncate">{item.listing?.title}</h4>
                       <p className="text-sm text-muted-foreground">{item.listing?.location}</p>
                       <p className="font-semibold text-primary mt-1">
-                        ${item.listing?.price.toLocaleString()}
+                        ₱{item.listing?.price.toLocaleString()}
                       </p>
                     </div>
                     <div className="flex flex-col items-end gap-2">
@@ -101,7 +108,7 @@ export const CartSheet = () => {
                 <div className="flex justify-between items-center">
                   <span className="font-medium">Total</span>
                   <span className="text-xl font-bold text-gradient">
-                    ${cartTotal.toLocaleString()}
+                    ₱{cartTotal.toLocaleString()}
                   </span>
                 </div>
                 <div className="flex gap-2">

@@ -1,31 +1,46 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { User, Mail, Star, MapPin, Camera, LogOut, Package, MessageSquare } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { User, Mail, Star, Camera, LogOut, Package, MessageSquare, ShoppingBag, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/hooks/useAuth';
+import { useMessages } from '@/hooks/useMessages';
+import { useOrders } from '@/hooks/useOrders';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { ListingCard } from '@/components/ListingCard';
 import { ListingItem } from '@/types/marketplace';
+import { formatDistanceToNow } from 'date-fns';
 
 interface ProfileData {
   display_name: string | null;
   avatar_url: string | null;
   rating: number | null;
+  phone: string | null;
 }
 
 const Profile = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user, loading: authLoading, signOut } = useAuth();
+  const { conversations, messages, loading: messagesLoading, sendMessage, refetch: refetchMessages } = useMessages();
+  const { orders, loading: ordersLoading } = useOrders();
+  
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [myListings, setMyListings] = useState<ListingItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [displayName, setDisplayName] = useState('');
   const [saving, setSaving] = useState(false);
+  
+  // Messages state
+  const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
+  const [newMessage, setNewMessage] = useState('');
+  const [conversationMessages, setConversationMessages] = useState<any[]>([]);
+  
+  const defaultTab = searchParams.get('tab') || 'listings';
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -39,7 +54,7 @@ const Profile = () => {
     const fetchProfile = async () => {
       const { data } = await supabase
         .from('profiles')
-        .select('display_name, avatar_url, rating')
+        .select('display_name, avatar_url, rating, phone')
         .eq('user_id', user.id)
         .maybeSingle();
 
@@ -64,7 +79,7 @@ const Profile = () => {
           price: Number(listing.price),
           category: listing.category,
           condition: listing.condition as 'new' | 'like-new' | 'good' | 'fair',
-          location: listing.location,
+          location: listing.city || listing.location,
           image: listing.image_url || 'https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=400&h=400&fit=crop',
           seller: {
             name: 'You',
@@ -80,6 +95,47 @@ const Profile = () => {
     fetchProfile();
     fetchMyListings();
   }, [user]);
+
+  const fetchConversationMessages = async (partnerId: string) => {
+    if (!user) return;
+    
+    const { data } = await supabase
+      .from('messages')
+      .select(`
+        *,
+        sender:profiles!messages_sender_id_fkey(display_name, avatar_url)
+      `)
+      .or(`and(sender_id.eq.${user.id},receiver_id.eq.${partnerId}),and(sender_id.eq.${partnerId},receiver_id.eq.${user.id})`)
+      .order('created_at', { ascending: true });
+    
+    setConversationMessages(data || []);
+    
+    // Mark as read
+    const unreadIds = (data || [])
+      .filter(m => m.receiver_id === user.id && !m.is_read)
+      .map(m => m.id);
+    
+    if (unreadIds.length > 0) {
+      await supabase
+        .from('messages')
+        .update({ is_read: true })
+        .in('id', unreadIds);
+      refetchMessages();
+    }
+  };
+
+  const handleSelectConversation = (partnerId: string) => {
+    setSelectedConversation(partnerId);
+    fetchConversationMessages(partnerId);
+  };
+
+  const handleSendMessage = async () => {
+    if (!newMessage.trim() || !selectedConversation) return;
+    
+    await sendMessage(newMessage, selectedConversation);
+    setNewMessage('');
+    fetchConversationMessages(selectedConversation);
+  };
 
   const handleSaveProfile = async () => {
     if (!user) return;
@@ -139,6 +195,17 @@ const Profile = () => {
     navigate('/');
   };
 
+  const getStatusBadge = (status: string) => {
+    const styles: Record<string, string> = {
+      pending: 'bg-yellow-100 text-yellow-800',
+      confirmed: 'bg-blue-100 text-blue-800',
+      shipped: 'bg-purple-100 text-purple-800',
+      delivered: 'bg-green-100 text-green-800',
+      cancelled: 'bg-red-100 text-red-800',
+    };
+    return styles[status] || 'bg-gray-100 text-gray-800';
+  };
+
   if (authLoading || loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -154,11 +221,9 @@ const Profile = () => {
       {/* Header */}
       <div className="hero-gradient py-12">
         <div className="container mx-auto px-4">
-          <div className="flex items-center gap-4">
-            <button onClick={() => navigate('/')} className="text-white/80 hover:text-white">
-              ← Back to Marketplace
-            </button>
-          </div>
+          <button onClick={() => navigate('/')} className="text-white/80 hover:text-white">
+            ← Back to Marketplace
+          </button>
         </div>
       </div>
 
@@ -166,7 +231,6 @@ const Profile = () => {
         {/* Profile Card */}
         <div className="bg-card rounded-2xl card-shadow p-6 mb-8">
           <div className="flex flex-col sm:flex-row items-center gap-6">
-            {/* Avatar */}
             <div className="relative">
               <img
                 src={profile?.avatar_url || `https://i.pravatar.cc/150?u=${user.id}`}
@@ -184,7 +248,6 @@ const Profile = () => {
               </label>
             </div>
 
-            {/* Info */}
             <div className="flex-1 text-center sm:text-left">
               {editing ? (
                 <div className="flex gap-2 items-center justify-center sm:justify-start">
@@ -203,15 +266,13 @@ const Profile = () => {
                 </div>
               ) : (
                 <div className="flex items-center gap-2 justify-center sm:justify-start">
-                  <h1 className="text-2xl font-bold">
-                    {profile?.display_name || 'User'}
-                  </h1>
+                  <h1 className="text-2xl font-bold">{profile?.display_name || 'User'}</h1>
                   <Button variant="ghost" size="sm" onClick={() => setEditing(true)}>
                     Edit
                   </Button>
                 </div>
               )}
-              <div className="flex items-center gap-4 mt-2 text-muted-foreground justify-center sm:justify-start">
+              <div className="flex items-center gap-4 mt-2 text-muted-foreground justify-center sm:justify-start flex-wrap">
                 <div className="flex items-center gap-1">
                   <Mail className="w-4 h-4" />
                   <span className="text-sm">{user.email}</span>
@@ -223,7 +284,6 @@ const Profile = () => {
               </div>
             </div>
 
-            {/* Actions */}
             <Button variant="outline" onClick={handleSignOut} className="gap-2">
               <LogOut className="w-4 h-4" />
               Sign Out
@@ -232,18 +292,30 @@ const Profile = () => {
         </div>
 
         {/* Tabs */}
-        <Tabs defaultValue="listings" className="space-y-6">
-          <TabsList>
+        <Tabs defaultValue={defaultTab} className="space-y-6">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="listings" className="gap-2">
               <Package className="w-4 h-4" />
-              My Listings ({myListings.length})
+              <span className="hidden sm:inline">My Listings</span>
+              <span className="sm:hidden">Listings</span>
+            </TabsTrigger>
+            <TabsTrigger value="orders" className="gap-2">
+              <ShoppingBag className="w-4 h-4" />
+              <span className="hidden sm:inline">Order History</span>
+              <span className="sm:hidden">Orders</span>
             </TabsTrigger>
             <TabsTrigger value="messages" className="gap-2">
               <MessageSquare className="w-4 h-4" />
               Messages
+              {conversations.filter(c => c.unreadCount > 0).length > 0 && (
+                <span className="w-5 h-5 bg-primary text-primary-foreground text-xs rounded-full flex items-center justify-center">
+                  {conversations.reduce((sum, c) => sum + c.unreadCount, 0)}
+                </span>
+              )}
             </TabsTrigger>
           </TabsList>
 
+          {/* Listings Tab */}
           <TabsContent value="listings">
             {myListings.length === 0 ? (
               <div className="text-center py-12 bg-card rounded-2xl">
@@ -263,13 +335,183 @@ const Profile = () => {
             )}
           </TabsContent>
 
+          {/* Orders Tab */}
+          <TabsContent value="orders">
+            {ordersLoading ? (
+              <div className="text-center py-12">
+                <p className="text-muted-foreground">Loading orders...</p>
+              </div>
+            ) : orders.length === 0 ? (
+              <div className="text-center py-12 bg-card rounded-2xl">
+                <ShoppingBag className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+                <h3 className="font-semibold mb-2">No orders yet</h3>
+                <p className="text-muted-foreground mb-4">Your purchase and sales history will appear here.</p>
+                <Button onClick={() => navigate('/')} className="hero-gradient border-0">
+                  Start Shopping
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {orders.map((order) => (
+                  <div key={order.id} className="bg-card rounded-2xl p-6 card-shadow">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Order #{order.id.slice(0, 8)}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {formatDistanceToNow(new Date(order.created_at), { addSuffix: true })}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className={`px-3 py-1 rounded-full text-xs font-medium capitalize ${getStatusBadge(order.status)}`}>
+                          {order.status}
+                        </span>
+                        <span className="text-sm">
+                          {order.buyer_id === user.id ? 'You bought' : 'You sold'}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-3">
+                      {order.items?.map((item) => (
+                        <div key={item.id} className="flex items-center gap-4">
+                          <img
+                            src={item.listing?.image_url || 'https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=400&h=400&fit=crop'}
+                            alt={item.listing?.title}
+                            className="w-16 h-16 rounded-lg object-cover"
+                          />
+                          <div className="flex-1">
+                            <p className="font-medium">{item.listing?.title}</p>
+                            <p className="text-sm text-muted-foreground">Qty: {item.quantity}</p>
+                          </div>
+                          <p className="font-semibold">₱{item.price.toLocaleString()}</p>
+                        </div>
+                      ))}
+                    </div>
+                    
+                    <div className="border-t border-border mt-4 pt-4 flex justify-between items-center">
+                      <div className="text-sm">
+                        <span className="text-muted-foreground">Payment: </span>
+                        <span className="font-medium uppercase">{order.payment_method.replace('_', ' ')}</span>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm text-muted-foreground">Total</p>
+                        <p className="text-xl font-bold text-gradient">₱{order.total.toLocaleString()}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </TabsContent>
+
+          {/* Messages Tab */}
           <TabsContent value="messages">
-            <div className="text-center py-12 bg-card rounded-2xl">
-              <MessageSquare className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-              <h3 className="font-semibold mb-2">Messages</h3>
-              <p className="text-muted-foreground">
-                Your conversations with buyers and sellers will appear here.
-              </p>
+            <div className="bg-card rounded-2xl card-shadow overflow-hidden">
+              <div className="grid md:grid-cols-3 min-h-[500px]">
+                {/* Conversations List */}
+                <div className="border-r border-border">
+                  <div className="p-4 border-b border-border">
+                    <h3 className="font-semibold">Conversations</h3>
+                  </div>
+                  {messagesLoading ? (
+                    <div className="p-4 text-center text-muted-foreground">Loading...</div>
+                  ) : conversations.length === 0 ? (
+                    <div className="p-8 text-center text-muted-foreground">
+                      <MessageSquare className="w-10 h-10 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">No conversations yet</p>
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-border">
+                      {conversations.map((conv) => (
+                        <button
+                          key={conv.partnerId}
+                          onClick={() => handleSelectConversation(conv.partnerId)}
+                          className={`w-full p-4 text-left hover:bg-muted/50 transition-colors ${
+                            selectedConversation === conv.partnerId ? 'bg-muted' : ''
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <img
+                              src={conv.partnerAvatar}
+                              alt={conv.partnerName}
+                              className="w-10 h-10 rounded-full object-cover"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between">
+                                <p className="font-medium truncate">{conv.partnerName}</p>
+                                {conv.unreadCount > 0 && (
+                                  <span className="w-5 h-5 bg-primary text-primary-foreground text-xs rounded-full flex items-center justify-center">
+                                    {conv.unreadCount}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-sm text-muted-foreground truncate">{conv.lastMessage}</p>
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Messages */}
+                <div className="md:col-span-2 flex flex-col">
+                  {selectedConversation ? (
+                    <>
+                      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                        {conversationMessages.map((msg) => (
+                          <div
+                            key={msg.id}
+                            className={`flex ${msg.sender_id === user.id ? 'justify-end' : 'justify-start'}`}
+                          >
+                            <div
+                              className={`max-w-[70%] rounded-2xl px-4 py-2 ${
+                                msg.sender_id === user.id
+                                  ? 'bg-primary text-primary-foreground'
+                                  : 'bg-muted'
+                              }`}
+                            >
+                              <p>{msg.content}</p>
+                              <p className={`text-xs mt-1 ${
+                                msg.sender_id === user.id ? 'text-primary-foreground/70' : 'text-muted-foreground'
+                              }`}>
+                                {formatDistanceToNow(new Date(msg.created_at), { addSuffix: true })}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="p-4 border-t border-border">
+                        <div className="flex gap-2">
+                          <Textarea
+                            value={newMessage}
+                            onChange={(e) => setNewMessage(e.target.value)}
+                            placeholder="Type a message..."
+                            rows={1}
+                            className="resize-none"
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && !e.shiftKey) {
+                                e.preventDefault();
+                                handleSendMessage();
+                              }
+                            }}
+                          />
+                          <Button onClick={handleSendMessage} className="hero-gradient border-0">
+                            <Send className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex-1 flex items-center justify-center text-muted-foreground">
+                      <div className="text-center">
+                        <MessageSquare className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                        <p>Select a conversation to view messages</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </TabsContent>
         </Tabs>
