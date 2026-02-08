@@ -16,7 +16,7 @@ interface Message {
 export const ChatBot = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
-    { role: 'assistant', content: "Hi! I'm your Carti assistant. How can I help you today? Ask me about buying, selling, or finding items!" }
+    { role: 'assistant', content: "Kumusta! Ako ang BentaBarkada assistant mo. Paano kita matutulungan? Tanungin mo ako tungkol sa pagbili, pagbenta, o paghahanap ng items!" }
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -136,7 +136,7 @@ export const ChatBot = () => {
           <div className="flex items-center justify-between p-4 border-b border-border hero-gradient">
             <div className="flex items-center gap-2">
               <Bot className="w-5 h-5 text-white" />
-              <span className="font-semibold text-white">Carti Assistant</span>
+              <span className="font-semibold text-white">BentaBarkada Assistant</span>
             </div>
             <button
               onClick={() => setIsOpen(false)}

@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { CartSheet } from '@/components/CartSheet';
+import bentabarkadaLogo from '@/assets/bentabarkada-logo.png';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,15 +27,15 @@ export const Navbar = ({ searchQuery, onSearchChange, onPostClick }: NavbarProps
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16 gap-4">
           {/* Logo */}
-          <div className="flex items-center gap-2.5 flex-shrink-0">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary via-primary to-primary/80 flex items-center justify-center shadow-md">
-              <svg className="w-5 h-5 text-primary-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="9" cy="21" r="1"/>
-                <circle cx="20" cy="21" r="1"/>
-                <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
-              </svg>
-            </div>
-            <span className="text-xl font-bold hidden sm:block tracking-tight">Carti</span>
+          <div 
+            className="flex items-center gap-2 flex-shrink-0 cursor-pointer"
+            onClick={() => navigate('/')}
+          >
+            <img 
+              src={bentabarkadaLogo} 
+              alt="BentaBarkada" 
+              className="h-10 w-auto object-contain"
+            />
           </div>
 
           {/* Search */}
