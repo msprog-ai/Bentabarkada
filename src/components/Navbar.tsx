@@ -1,4 +1,4 @@
-import { Search, Plus, User, LogOut } from 'lucide-react';
+import { Search, Plus, User, LogOut, Store } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/hooks/useAuth';
@@ -74,6 +74,10 @@ export const Navbar = ({ searchQuery, onSearchChange, onPostClick }: NavbarProps
                   <DropdownMenuItem onClick={() => navigate('/profile')}>
                     <User className="w-4 h-4 mr-2" />
                     My Profile
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate('/seller')}>
+                    <Store className="w-4 h-4 mr-2" />
+                    Seller Dashboard
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={signOut}>
                     <LogOut className="w-4 h-4 mr-2" />
