@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Package, ArrowLeft, Clock, CheckCircle, Truck, PackageCheck, XCircle, User, MapPin, Phone, CreditCard } from 'lucide-react';
+import { Package, ArrowLeft, Clock, CheckCircle, Truck, PackageCheck, XCircle, User, MapPin, Phone, CreditCard, Bike } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/hooks/useAuth';
@@ -8,6 +8,7 @@ import { useOrders, Order } from '@/hooks/useOrders';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
+import DeliveryStatusTracker from '@/components/DeliveryStatusTracker';
 
 const statusConfig = {
   pending: { icon: Clock, color: 'text-yellow-600 bg-yellow-100', label: 'Pending' },
@@ -260,6 +261,28 @@ const SellerDashboard = () => {
                           <p className="text-sm bg-muted/50 rounded-lg p-3">{order.notes}</p>
                         </div>
                       )}
+
+                      {/* Delivery Tracking */}
+                      {order.status === 'confirmed' || order.status === 'shipped' ? (
+                        <div className="md:col-span-2 pt-4 border-t border-border">
+                          <h4 className="font-medium mb-4 text-sm text-muted-foreground uppercase tracking-wide flex items-center gap-2">
+                            <Bike className="w-4 h-4" />
+                            Delivery Tracking
+                          </h4>
+                          <DeliveryStatusTracker
+                            orderId={order.id}
+                            deliveryStatus={order.delivery_status || 'pending'}
+                            deliveryMethod={order.delivery_method || null}
+                            riderName={order.rider_name}
+                            riderPhone={order.rider_phone}
+                            trackingNumber={order.tracking_number}
+                            deliveryProvider={order.delivery_provider}
+                            proofOfDeliveryUrl={order.proof_of_delivery_url}
+                            isSeller={true}
+                            onUpdate={refetch}
+                          />
+                        </div>
+                      ) : null}
                     </div>
                   </div>
 

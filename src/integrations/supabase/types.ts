@@ -274,13 +274,20 @@ export type Database = {
           buyer_id: string
           created_at: string
           delivery_fee: number
+          delivery_method: string | null
+          delivery_provider: string | null
+          delivery_status: string | null
           id: string
           notes: string | null
           payment_method: Database["public"]["Enums"]["payment_method"]
+          proof_of_delivery_url: string | null
+          rider_name: string | null
+          rider_phone: string | null
           seller_id: string
           status: Database["public"]["Enums"]["order_status"]
           subtotal: number
           total: number
+          tracking_number: string | null
           updated_at: string
         }
         Insert: {
@@ -288,13 +295,20 @@ export type Database = {
           buyer_id: string
           created_at?: string
           delivery_fee?: number
+          delivery_method?: string | null
+          delivery_provider?: string | null
+          delivery_status?: string | null
           id?: string
           notes?: string | null
           payment_method: Database["public"]["Enums"]["payment_method"]
+          proof_of_delivery_url?: string | null
+          rider_name?: string | null
+          rider_phone?: string | null
           seller_id: string
           status?: Database["public"]["Enums"]["order_status"]
           subtotal: number
           total: number
+          tracking_number?: string | null
           updated_at?: string
         }
         Update: {
@@ -302,13 +316,20 @@ export type Database = {
           buyer_id?: string
           created_at?: string
           delivery_fee?: number
+          delivery_method?: string | null
+          delivery_provider?: string | null
+          delivery_status?: string | null
           id?: string
           notes?: string | null
           payment_method?: Database["public"]["Enums"]["payment_method"]
+          proof_of_delivery_url?: string | null
+          rider_name?: string | null
+          rider_phone?: string | null
           seller_id?: string
           status?: Database["public"]["Enums"]["order_status"]
           subtotal?: number
           total?: number
+          tracking_number?: string | null
           updated_at?: string
         }
         Relationships: [
