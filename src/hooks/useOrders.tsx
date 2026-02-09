@@ -39,6 +39,13 @@ export interface Order {
   created_at: string;
   items?: OrderItem[];
   address?: Address;
+  delivery_method?: 'buyer_book' | 'seller_book' | null;
+  delivery_status?: 'pending' | 'pickup_scheduled' | 'picked_up' | 'in_transit' | 'delivered';
+  proof_of_delivery_url?: string;
+  rider_name?: string;
+  rider_phone?: string;
+  tracking_number?: string;
+  delivery_provider?: string;
 }
 
 export interface OrderItem {
@@ -130,6 +137,13 @@ export const useOrders = () => {
       total: Number(order.total),
       notes: order.notes,
       created_at: order.created_at,
+      delivery_method: order.delivery_method,
+      delivery_status: order.delivery_status || 'pending',
+      proof_of_delivery_url: order.proof_of_delivery_url,
+      rider_name: order.rider_name,
+      rider_phone: order.rider_phone,
+      tracking_number: order.tracking_number,
+      delivery_provider: order.delivery_provider,
       items: order.order_items?.map((item: any) => ({
         id: item.id,
         order_id: item.order_id,
@@ -171,7 +185,8 @@ export const useOrders = () => {
     paymentMethod: 'gcash' | 'maya' | 'qr_ph' | 'cod',
     addressId: string,
     deliveryFee: number,
-    notes?: string
+    notes?: string,
+    deliveryMethod?: 'buyer_book' | 'seller_book'
   ) => {
     if (!user) return { error: new Error('Not authenticated') };
 
@@ -197,7 +212,9 @@ export const useOrders = () => {
           subtotal: sellerSubtotal,
           delivery_fee: deliveryFee / sellerIds.length,
           total: sellerTotal,
-          notes
+          notes,
+          delivery_method: deliveryMethod,
+          delivery_status: 'pending'
         })
         .select()
         .single();

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { User, Mail, Star, Camera, LogOut, Package, MessageSquare, ShoppingBag, Send } from 'lucide-react';
+import { User, Mail, Star, Camera, LogOut, Package, MessageSquare, ShoppingBag, Send, Bike } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { ListingCard } from '@/components/ListingCard';
 import { ListingItem } from '@/types/marketplace';
 import { formatDistanceToNow } from 'date-fns';
+import DeliveryStatusTracker from '@/components/DeliveryStatusTracker';
 
 interface ProfileData {
   display_name: string | null;
@@ -26,7 +27,7 @@ const Profile = () => {
   const [searchParams] = useSearchParams();
   const { user, loading: authLoading, signOut } = useAuth();
   const { conversations, messages, loading: messagesLoading, sendMessage, refetch: refetchMessages } = useMessages();
-  const { orders, loading: ordersLoading } = useOrders();
+  const { orders, loading: ordersLoading, refetch: refetchOrders } = useOrders();
   
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [myListings, setMyListings] = useState<ListingItem[]>([]);
@@ -398,6 +399,28 @@ const Profile = () => {
                         <p className="text-xl font-bold text-gradient">₱{order.total.toLocaleString()}</p>
                       </div>
                     </div>
+
+                    {/* Delivery Tracking for Buyers */}
+                    {order.buyer_id === user.id && (order.status === 'confirmed' || order.status === 'shipped') && (
+                      <div className="border-t border-border mt-4 pt-4">
+                        <h4 className="font-medium mb-4 text-sm text-muted-foreground uppercase tracking-wide flex items-center gap-2">
+                          <Bike className="w-4 h-4" />
+                          Delivery Tracking
+                        </h4>
+                        <DeliveryStatusTracker
+                          orderId={order.id}
+                          deliveryStatus={order.delivery_status || 'pending'}
+                          deliveryMethod={order.delivery_method || null}
+                          riderName={order.rider_name}
+                          riderPhone={order.rider_phone}
+                          trackingNumber={order.tracking_number}
+                          deliveryProvider={order.delivery_provider}
+                          proofOfDeliveryUrl={order.proof_of_delivery_url}
+                          isBuyer={true}
+                          onUpdate={refetchOrders}
+                        />
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

@@ -12,6 +12,7 @@ import { useCart } from '@/hooks/useCart';
 import { useOrders, Address } from '@/hooks/useOrders';
 import { philippineCities, getDeliveryZoneByCity } from '@/data/philippineLocations';
 import { toast } from 'sonner';
+import DeliveryMethodSelector from '@/components/DeliveryMethodSelector';
 
 const Checkout = () => {
   const navigate = useNavigate();
@@ -22,6 +23,7 @@ const Checkout = () => {
   const [selectedAddress, setSelectedAddress] = useState<string>('');
   const [showAddressForm, setShowAddressForm] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'gcash' | 'maya' | 'qr_ph' | 'cod'>('gcash');
+  const [deliveryMethod, setDeliveryMethod] = useState<'buyer_book' | 'seller_book' | null>(null);
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -111,6 +113,11 @@ const Checkout = () => {
       return;
     }
 
+    if (!deliveryMethod) {
+      toast.error('Please select a delivery method');
+      return;
+    }
+
     if (cartItems.length === 0) {
       toast.error('Your cart is empty');
       return;
@@ -148,7 +155,8 @@ const Checkout = () => {
       paymentMethod,
       selectedAddress,
       deliveryFee,
-      notes || undefined
+      notes || undefined,
+      deliveryMethod
     );
 
     setIsSubmitting(false);
@@ -390,6 +398,18 @@ const Checkout = () => {
                   </p>
                 </div>
               )}
+            </div>
+
+            {/* Delivery Method */}
+            <div className="bg-card rounded-2xl p-6 card-shadow">
+              <div className="flex items-center gap-2 mb-4">
+                <Truck className="w-5 h-5 text-primary" />
+                <h2 className="text-lg font-semibold">Delivery Method</h2>
+              </div>
+              <DeliveryMethodSelector
+                value={deliveryMethod}
+                onChange={setDeliveryMethod}
+              />
             </div>
 
             {/* Order Notes */}
