@@ -1,7 +1,8 @@
-import { Search, Plus, User, LogOut, Store } from 'lucide-react';
+import { Search, Plus, User, LogOut, Store, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/hooks/useAuth';
+import { useAdmin } from '@/hooks/useAdmin';
 import { useNavigate } from 'react-router-dom';
 import { CartSheet } from '@/components/CartSheet';
 import bentabarkadaLogo from '@/assets/bentabarkada-logo.png';
@@ -20,6 +21,7 @@ interface NavbarProps {
 
 export const Navbar = ({ searchQuery, onSearchChange, onPostClick }: NavbarProps) => {
   const { user, signOut } = useAuth();
+  const { isAdmin } = useAdmin();
   const navigate = useNavigate();
 
   return (
@@ -80,6 +82,12 @@ export const Navbar = ({ searchQuery, onSearchChange, onPostClick }: NavbarProps
                     <Store className="w-4 h-4 mr-2" />
                     Seller Dashboard
                   </DropdownMenuItem>
+                  {isAdmin && (
+                    <DropdownMenuItem onClick={() => navigate('/admin')}>
+                      <ShieldCheck className="w-4 h-4 mr-2" />
+                      Admin Dashboard
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuItem onClick={signOut}>
                     <LogOut className="w-4 h-4 mr-2" />
                     Sign Out
