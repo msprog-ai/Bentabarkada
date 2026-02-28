@@ -5,9 +5,11 @@ import { CategoryFilter } from '@/components/CategoryFilter';
 import { ListingCard } from '@/components/ListingCard';
 import { ListingDetail } from '@/components/ListingDetail';
 import { PostItemForm } from '@/components/PostItemForm';
+import { SellerVerificationForm } from '@/components/SellerVerificationForm';
 import { ChatBot } from '@/components/ChatBot';
 import { useListings } from '@/hooks/useListings';
 import { useAuth } from '@/hooks/useAuth';
+import { useSellerVerification } from '@/hooks/useSellerVerification';
 import { ListingItem } from '@/types/marketplace';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
@@ -16,10 +18,12 @@ const Index = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { listings, loading, refetch } = useListings();
+  const { isVerified, isPending, isRejected, refetch: refetchVerification } = useSellerVerification();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedItem, setSelectedItem] = useState<ListingItem | null>(null);
   const [showPostForm, setShowPostForm] = useState(false);
+  const [showVerification, setShowVerification] = useState(false);
 
   const filteredListings = useMemo(() => {
     return listings.filter((item) => {
@@ -34,6 +38,14 @@ const Index = () => {
     if (!user) {
       toast.error('Please sign in to post an item');
       navigate('/auth');
+      return;
+    }
+    if (!isVerified) {
+      if (isPending) {
+        toast.info('Your seller verification is still being reviewed.');
+      } else {
+        setShowVerification(true);
+      }
       return;
     }
     setShowPostForm(true);
@@ -112,6 +124,16 @@ const Index = () => {
         <PostItemForm 
           onClose={() => setShowPostForm(false)} 
           onSuccess={refetch}
+        />
+      )}
+
+      {/* Seller Verification Form */}
+      {showVerification && (
+        <SellerVerificationForm
+          onClose={() => {
+            setShowVerification(false);
+            refetchVerification();
+          }}
         />
       )}
 
