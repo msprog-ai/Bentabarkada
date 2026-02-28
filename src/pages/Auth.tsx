@@ -450,7 +450,7 @@ const Auth = () => {
     <div className="min-h-screen bg-background flex items-center justify-center px-4">
       <div className="w-full max-w-md space-y-8">
         <div className="text-center">
-          <img src={bentaBarkadaLogo} alt="BentaBarkada" className="h-24 mx-auto mb-2" />
+          <img src={bentaBarkadaLogo} alt="BentaBarkada" className="h-32 mx-auto mb-2" />
           <p className="mt-2 text-muted-foreground">
             {mode === 'login' && 'Sign in to your account'}
             {mode === 'signup' && 'Create your account'}
