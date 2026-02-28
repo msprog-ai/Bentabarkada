@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { useCart } from '@/hooks/useCart';
 import { useAuth } from '@/hooks/useAuth';
 import { MessageDialog } from './MessageDialog';
+import { BiddingSection } from './BiddingSection';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 
@@ -167,6 +168,15 @@ export const ListingDetail = ({ item, onClose, sellerId }: ListingDetailProps) =
                     </Button>
                   </div>
                 </div>
+              </div>
+
+              {/* Bidding Section */}
+              <div className="border-t border-border p-6 md:p-8">
+                <BiddingSection
+                  listingId={item.id}
+                  currentPrice={item.price}
+                  sellerId={sellerId}
+                />
               </div>
             </div>
           </div>
