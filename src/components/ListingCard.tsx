@@ -1,7 +1,8 @@
-import { Heart, MapPin, Star } from 'lucide-react';
+import { Heart, MapPin, Star, MessageSquare, Gavel, Tag, Eye } from 'lucide-react';
 import { ListingItem } from '@/types/marketplace';
 import { cn } from '@/lib/utils';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 
 interface ListingCardProps {
   item: ListingItem;
@@ -10,6 +11,26 @@ interface ListingCardProps {
 
 export const ListingCard = ({ item, onClick }: ListingCardProps) => {
   const [isFavorite, setIsFavorite] = useState(item.isFavorite || false);
+  const [bidCount, setBidCount] = useState(0);
+  const [highestBid, setHighestBid] = useState<number | null>(null);
+
+  useEffect(() => {
+    const fetchBidInfo = async () => {
+      const { data, error } = await supabase
+        .from('bids')
+        .select('amount')
+        .eq('listing_id', item.id)
+        .order('amount', { ascending: false });
+
+      if (!error && data) {
+        setBidCount(data.length);
+        if (data.length > 0) {
+          setHighestBid(data[0].amount);
+        }
+      }
+    };
+    fetchBidInfo();
+  }, [item.id]);
 
   const handleFavoriteClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -26,63 +47,89 @@ export const ListingCard = ({ item, onClick }: ListingCardProps) => {
   return (
     <div
       onClick={() => onClick(item)}
-      className="group bg-card rounded-xl overflow-hidden card-shadow hover:card-shadow-hover transition-all duration-300 cursor-pointer animate-fade-in">
-
+      className="group bg-card rounded-xl overflow-hidden card-shadow hover:card-shadow-hover transition-all duration-300 cursor-pointer animate-fade-in flex flex-col"
+    >
       {/* Image */}
       <div className="relative aspect-square overflow-hidden">
         <img
           src={item.image}
           alt={item.title}
-          className="w-full h-full group-hover:scale-105 transition-transform duration-500 border border-solid border-primary object-scale-down rounded-lg" />
-
+          className="w-full h-full group-hover:scale-105 transition-transform duration-500 border border-solid border-primary object-scale-down rounded-lg"
+        />
         <button
           onClick={handleFavoriteClick}
           className={cn(
-            "absolute top-3 right-3 w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200",
-            isFavorite ?
-            "bg-primary text-primary-foreground" :
-            "bg-card/80 backdrop-blur-sm text-foreground hover:bg-card"
-          )}>
-
+            "absolute top-2 right-2 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200",
+            isFavorite
+              ? "bg-primary text-primary-foreground"
+              : "bg-card/80 backdrop-blur-sm text-foreground hover:bg-card"
+          )}
+        >
           <Heart className={cn("w-4 h-4", isFavorite && "fill-current")} />
         </button>
         <span
           className={cn(
-            "absolute bottom-3 left-3 px-2 py-1 rounded-full text-xs font-medium capitalize",
+            "absolute bottom-2 left-2 px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-medium capitalize",
             conditionColors[item.condition]
-          )}>
-
+          )}
+        >
           {item.condition.replace('-', ' ')}
         </span>
       </div>
 
       {/* Content */}
-      <div className="p-4">
-        <div className="flex items-start justify-between gap-2 mb-2">
-          <h3 className="font-semibold text-foreground line-clamp-2 group-hover:text-primary transition-colors">
-            {item.title}
-          </h3>
-        </div>
-        <p className="text-2xl font-bold text-foreground mb-3">
-          ₱{item.price.toLocaleString()}
+      <div className="p-3 sm:p-4 flex flex-col flex-1">
+        <h3 className="font-semibold text-sm sm:text-base text-foreground line-clamp-2 group-hover:text-primary transition-colors mb-1">
+          {item.title}
+        </h3>
+
+        {/* Description preview */}
+        <p className="text-xs text-muted-foreground line-clamp-2 mb-2">
+          {item.description}
         </p>
-        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-3">
-          <MapPin className="w-3.5 h-3.5" />
-          <span>{item.location}</span>
+
+        {/* Price */}
+        <div className="flex items-center gap-1.5 mb-2">
+          <Tag className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+          <span className="text-lg sm:text-xl font-bold text-foreground">
+            ₱{item.price.toLocaleString()}
+          </span>
         </div>
-        <div className="flex items-center gap-2 pt-3 border-t border-border">
+
+        {/* Bid info */}
+        <div className="flex items-center gap-3 mb-2 flex-wrap">
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            <Gavel className="w-3.5 h-3.5" />
+            <span>{bidCount} {bidCount === 1 ? 'bid' : 'bids'}</span>
+          </div>
+          {highestBid && (
+            <div className="flex items-center gap-1 text-xs font-semibold text-primary">
+              <Eye className="w-3.5 h-3.5" />
+              <span>Top: ₱{highestBid.toLocaleString()}</span>
+            </div>
+          )}
+        </div>
+
+        {/* Location */}
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-2">
+          <MapPin className="w-3 h-3 flex-shrink-0" />
+          <span className="truncate">{item.location}</span>
+        </div>
+
+        {/* Seller info - pushed to bottom */}
+        <div className="flex items-center gap-2 pt-2 mt-auto border-t border-border">
           <img
             src={item.seller.avatar}
             alt={item.seller.name}
-            className="w-7 h-7 rounded-full object-cover" />
-
-          <span className="text-sm text-muted-foreground">{item.seller.name}</span>
-          <div className="flex items-center gap-1 ml-auto">
-            <Star className="w-3.5 h-3.5 fill-warning text-warning" />
-            <span className="text-sm font-medium">{item.seller.rating}</span>
+            className="w-6 h-6 rounded-full object-cover flex-shrink-0"
+          />
+          <span className="text-xs text-muted-foreground truncate">{item.seller.name}</span>
+          <div className="flex items-center gap-0.5 ml-auto flex-shrink-0">
+            <Star className="w-3 h-3 fill-warning text-warning" />
+            <span className="text-xs font-medium">{item.seller.rating}</span>
           </div>
         </div>
       </div>
-    </div>);
-
+    </div>
+  );
 };
