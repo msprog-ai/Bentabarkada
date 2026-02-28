@@ -82,12 +82,18 @@ const Index = () => {
             ))}
           </div>
         ) : (
-          <div className="text-center py-16">
-            <p className="text-4xl mb-4">🔍</p>
-            <h3 className="text-xl font-semibold mb-2">No items found</h3>
-            <p className="text-muted-foreground">
-              Try adjusting your search or browse different categories
+          <div className="text-center py-20">
+            <div className="text-7xl mb-6 animate-bounce">🛍️</div>
+            <h3 className="text-2xl font-bold mb-3">No items yet — be the first!</h3>
+            <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+              The marketplace is waiting for its first listing. Got something to sell? Post it now and let others discover it!
             </p>
+            <button
+              onClick={handlePostClick}
+              className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-primary-foreground font-semibold shadow-lg hover:opacity-90 transition-opacity"
+            >
+              Post Your First Item
+            </button>
           </div>
         )}
       </main>
