@@ -42,10 +42,13 @@ export interface Order {
   delivery_method?: 'buyer_book' | 'seller_book' | null;
   delivery_status?: 'pending' | 'pickup_scheduled' | 'picked_up' | 'in_transit' | 'delivered';
   proof_of_delivery_url?: string;
+  pickup_photo_url?: string;
   rider_name?: string;
   rider_phone?: string;
   tracking_number?: string;
   delivery_provider?: string;
+  rider_tracking_link?: string;
+  delivery_checkpoint?: string;
 }
 
 export interface OrderItem {
@@ -140,10 +143,13 @@ export const useOrders = () => {
       delivery_method: order.delivery_method,
       delivery_status: order.delivery_status || 'pending',
       proof_of_delivery_url: order.proof_of_delivery_url,
+      pickup_photo_url: order.pickup_photo_url,
       rider_name: order.rider_name,
       rider_phone: order.rider_phone,
       tracking_number: order.tracking_number,
       delivery_provider: order.delivery_provider,
+      rider_tracking_link: order.rider_tracking_link,
+      delivery_checkpoint: order.delivery_checkpoint,
       items: order.order_items?.map((item: any) => ({
         id: item.id,
         order_id: item.order_id,

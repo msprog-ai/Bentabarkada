@@ -22,7 +22,6 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    // Verify the user with their token
     const userClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
       global: { headers: { Authorization: authHeader } },
     });
@@ -34,7 +33,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Check admin role using service client
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
     const { data: roleData } = await adminClient
       .from("user_roles")
@@ -53,10 +51,11 @@ Deno.serve(async (req) => {
     const url = new URL(req.url);
     const tab = url.searchParams.get("tab") || "orders";
 
-    // Handle verification actions via POST
+    // Handle actions via POST
     if (req.method === "POST") {
       const body = await req.json();
       
+      // Verification actions
       if (body.action === "approve_verification" || body.action === "reject_verification") {
         const status = body.action === "approve_verification" ? "approved" : "rejected";
         const updateData: any = {
@@ -72,6 +71,46 @@ Deno.serve(async (req) => {
           .from("seller_verifications")
           .update(updateData)
           .eq("id", body.verification_id);
+
+        if (error) {
+          return new Response(JSON.stringify({ error: error.message }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Listing approval actions
+      if (body.action === "approve_listing" || body.action === "reject_listing") {
+        const approval_status = body.action === "approve_listing" ? "approved" : "rejected";
+        const { error } = await adminClient
+          .from("listings")
+          .update({ approval_status })
+          .eq("id", body.listing_id);
+
+        if (error) {
+          return new Response(JSON.stringify({ error: error.message }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // User approval actions
+      if (body.action === "approve_user" || body.action === "reject_user") {
+        const is_approved = body.action === "approve_user";
+        const { error } = await adminClient
+          .from("profiles")
+          .update({ is_approved })
+          .eq("user_id", body.user_id);
 
         if (error) {
           return new Response(JSON.stringify({ error: error.message }), {
@@ -161,7 +200,6 @@ Deno.serve(async (req) => {
         .order("created_at", { ascending: false })
         .limit(200);
 
-      // Get profile names and emails
       const userIds = new Set<string>();
       verifications?.forEach((v: any) => userIds.add(v.user_id));
       
@@ -177,7 +215,6 @@ Deno.serve(async (req) => {
       const profileMap: Record<string, any> = {};
       profiles?.forEach((p: any) => { profileMap[p.user_id] = p; });
 
-      // Generate signed URLs for documents
       data = await Promise.all(
         (verifications || []).map(async (v: any) => {
           const urls: any = {};
@@ -186,7 +223,7 @@ Deno.serve(async (req) => {
             if (v[field]) {
               const { data: signedData } = await adminClient.storage
                 .from('verification-documents')
-                .createSignedUrl(v[field], 3600); // 1 hour
+                .createSignedUrl(v[field], 3600);
               urls[field + '_signed'] = signedData?.signedUrl || null;
             }
           }

@@ -17,6 +17,7 @@ export const useListings = () => {
       const { data: dbListings, error } = await supabase
         .from('listings')
         .select('*')
+        .eq('approval_status', 'approved')
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -41,6 +42,7 @@ export const useListings = () => {
             title: listing.title,
             description: listing.description,
             price: Number(listing.price),
+            quantity: listing.quantity || 1,
             category: listing.category,
             condition: listing.condition as 'new' | 'like-new' | 'good' | 'fair',
             location: listing.location,

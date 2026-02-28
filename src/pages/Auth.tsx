@@ -54,7 +54,7 @@ const Auth = () => {
       passwordSchema.parse(password);
 
       if (mode === 'login') {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { error, data: signInData } = await supabase.auth.signInWithPassword({ email, password });
         if (error) {
           if (error.message.includes('Invalid login credentials')) {
             toast.error('Invalid email or password');
@@ -62,6 +62,28 @@ const Auth = () => {
             toast.error(error.message);
           }
         } else {
+          // Check if user is approved
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('is_approved')
+            .eq('user_id', signInData.user.id)
+            .maybeSingle();
+          
+          if (profile && !profile.is_approved) {
+            // Check if user is admin (admins bypass approval)
+            const { data: roleData } = await supabase
+              .from('user_roles')
+              .select('role')
+              .eq('user_id', signInData.user.id)
+              .eq('role', 'admin')
+              .maybeSingle();
+            
+            if (!roleData) {
+              await supabase.auth.signOut();
+              toast.error('Your account is pending admin approval. Please wait for approval before signing in.');
+              return;
+            }
+          }
           toast.success('Welcome back!');
           navigate('/');
         }
@@ -84,7 +106,7 @@ const Auth = () => {
             toast.error(error.message);
           }
         } else {
-          toast.success('Account created! Please check your email to confirm, then complete seller verification to start selling.');
+          toast.success('Account created! Please check your email to confirm. Your account will need admin approval before you can access the platform.');
         }
       }
     } catch (error) {
