@@ -28,7 +28,7 @@ const Index = () => {
   const filteredListings = useMemo(() => {
     return listings.filter((item) => {
       const matchesSearch = item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.description.toLowerCase().includes(searchQuery.toLowerCase());
+      item.description.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesCategory = selectedCategory === 'all' || item.category === selectedCategory;
       return matchesSearch && matchesCategory;
     });
@@ -56,18 +56,18 @@ const Index = () => {
       <Navbar
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
-        onPostClick={handlePostClick}
-      />
+        onPostClick={handlePostClick} />
+
 
       <HeroSection />
 
-      <main className="container mx-auto px-4 pb-16">
+      <main className="container mx-auto px-4 pb-16 border-2">
         {/* Categories */}
         <div className="mb-8">
           <CategoryFilter
             selectedCategory={selectedCategory}
-            onCategoryChange={setSelectedCategory}
-          />
+            onCategoryChange={setSelectedCategory} />
+
         </div>
 
         {/* Results Count */}
@@ -81,66 +81,66 @@ const Index = () => {
         </div>
 
         {/* Listings Grid */}
-        {loading ? (
-          <div className="text-center py-16">
+        {loading ?
+        <div className="text-center py-16">
             <p className="text-muted-foreground">Loading listings...</p>
-          </div>
-        ) : filteredListings.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {filteredListings.map((item, index) => (
-              <div key={item.id} style={{ animationDelay: `${index * 0.05}s` }}>
+          </div> :
+        filteredListings.length > 0 ?
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {filteredListings.map((item, index) =>
+          <div key={item.id} style={{ animationDelay: `${index * 0.05}s` }}>
                 <ListingCard item={item} onClick={setSelectedItem} />
               </div>
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-20">
+          )}
+          </div> :
+
+        <div className="text-center py-20">
             <div className="text-7xl mb-6 animate-bounce">🛍️</div>
             <h3 className="text-2xl font-bold mb-3">No items yet — be the first!</h3>
             <p className="text-muted-foreground mb-6 max-w-md mx-auto">
               The marketplace is waiting for its first listing. Got something to sell? Post it now and let others discover it!
             </p>
             <button
-              onClick={handlePostClick}
-              className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-primary-foreground font-semibold shadow-lg hover:opacity-90 transition-opacity"
-            >
+            onClick={handlePostClick}
+            className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-primary-foreground font-semibold shadow-lg hover:opacity-90 transition-opacity">
+
               Post Your First Item
             </button>
           </div>
-        )}
+        }
       </main>
 
       {/* Item Detail Modal */}
-      {selectedItem && (
-        <ListingDetail 
-          item={selectedItem} 
-          onClose={() => setSelectedItem(null)} 
-          sellerId={selectedItem.seller.id}
-        />
-      )}
+      {selectedItem &&
+      <ListingDetail
+        item={selectedItem}
+        onClose={() => setSelectedItem(null)}
+        sellerId={selectedItem.seller.id} />
+
+      }
 
       {/* Post Item Form */}
-      {showPostForm && (
-        <PostItemForm 
-          onClose={() => setShowPostForm(false)} 
-          onSuccess={refetch}
-        />
-      )}
+      {showPostForm &&
+      <PostItemForm
+        onClose={() => setShowPostForm(false)}
+        onSuccess={refetch} />
+
+      }
 
       {/* Seller Verification Form */}
-      {showVerification && (
-        <SellerVerificationForm
-          onClose={() => {
-            setShowVerification(false);
-            refetchVerification();
-          }}
-        />
-      )}
+      {showVerification &&
+      <SellerVerificationForm
+        onClose={() => {
+          setShowVerification(false);
+          refetchVerification();
+        }} />
+
+      }
 
       {/* AI Chatbot */}
       <ChatBot />
-    </div>
-  );
+    </div>);
+
 };
 
 export default Index;
