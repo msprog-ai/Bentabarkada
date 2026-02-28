@@ -83,7 +83,7 @@ const Auth = () => {
             toast.error(error.message);
           }
         } else {
-          toast.success('Check your email to confirm your account!');
+          toast.success('Account created! Please check your email to confirm, then complete seller verification to start selling.');
         }
       }
     } catch (error) {
@@ -449,7 +449,7 @@ const Auth = () => {
     <div className="min-h-screen bg-background flex items-center justify-center px-4">
       <div className="w-full max-w-md space-y-8">
         <div className="text-center">
-          <h1 className="text-3xl font-bold text-gradient tracking-tight">Carti</h1>
+          <h1 className="text-3xl font-bold text-gradient tracking-tight">bentaBarkada</h1>
           <p className="mt-2 text-muted-foreground">
             {mode === 'login' && 'Sign in to your account'}
             {mode === 'signup' && 'Create your account'}
