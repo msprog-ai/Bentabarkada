@@ -30,12 +30,6 @@ export const useAdmin = () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) throw new Error('Not authenticated');
 
-    const response = await supabase.functions.invoke('admin-data', {
-      body: null,
-      headers: {},
-    });
-
-    // Use fetch directly for query params
     const res = await fetch(
       `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-data?tab=${tab}`,
       {
