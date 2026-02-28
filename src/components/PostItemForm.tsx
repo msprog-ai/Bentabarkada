@@ -1,15 +1,17 @@
-import { useState, useRef } from 'react';
-import { X, Upload, Image as ImageIcon, Loader2 } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { X, Upload, Image as ImageIcon, Loader2, Truck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { categories } from '@/data/mockData';
 import { philippineCities, getDeliveryZoneByCity } from '@/data/philippineLocations';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import type { Courier } from '@/components/CourierSelector';
 
 interface PostItemFormProps {
   onClose: () => void;
@@ -33,6 +35,19 @@ export const PostItemForm = ({ onClose, onSuccess }: PostItemFormProps) => {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [couriers, setCouriers] = useState<Courier[]>([]);
+  const [selectedCouriers, setSelectedCouriers] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    const fetchCouriers = async () => {
+      const { data } = await supabase
+        .from('shipping_couriers')
+        .select('*')
+        .eq('is_active', true);
+      setCouriers((data || []).map(c => ({ ...c, base_fee: Number(c.base_fee) })));
+    };
+    fetchCouriers();
+  }, []);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -94,6 +109,11 @@ export const PostItemForm = ({ onClose, onSuccess }: PostItemFormProps) => {
       return;
     }
 
+    if (selectedCouriers.size === 0) {
+      toast.error('Please select at least one shipping option');
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -135,6 +155,23 @@ export const PostItemForm = ({ onClose, onSuccess }: PostItemFormProps) => {
       });
 
       if (error) throw error;
+
+      // Insert listing_couriers
+      const { data: newListing } = await supabase
+        .from('listings')
+        .select('id')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (newListing) {
+        const courierInserts = [...selectedCouriers].map(courierId => ({
+          listing_id: newListing.id,
+          courier_id: courierId,
+        }));
+        await supabase.from('listing_couriers').insert(courierInserts);
+      }
 
       toast.success('Your item has been posted successfully!');
       onSuccess?.();
@@ -302,6 +339,56 @@ export const PostItemForm = ({ onClose, onSuccess }: PostItemFormProps) => {
                 <p className="text-xs text-muted-foreground mt-1">
                   This will only be shared with buyers after purchase
                 </p>
+              </div>
+
+              {/* Shipping Options */}
+              <div>
+                <Label className="flex items-center gap-2 mb-3">
+                  <Truck className="w-4 h-4" />
+                  Shipping Options *
+                </Label>
+                <p className="text-xs text-muted-foreground mb-3">
+                  Select which couriers you support for this item
+                </p>
+                <div className="grid gap-2">
+                  {couriers.map((courier) => (
+                    <div
+                      key={courier.id}
+                      className={`flex items-center gap-3 p-3 rounded-xl border-2 transition-all cursor-pointer ${
+                        selectedCouriers.has(courier.id)
+                          ? 'border-primary bg-primary/5'
+                          : 'border-border hover:border-primary/50'
+                      }`}
+                      onClick={() => {
+                        setSelectedCouriers(prev => {
+                          const next = new Set(prev);
+                          if (next.has(courier.id)) next.delete(courier.id);
+                          else next.add(courier.id);
+                          return next;
+                        });
+                      }}
+                    >
+                      <Checkbox
+                        checked={selectedCouriers.has(courier.id)}
+                        onCheckedChange={(checked) => {
+                          setSelectedCouriers(prev => {
+                            const next = new Set(prev);
+                            if (checked) next.add(courier.id);
+                            else next.delete(courier.id);
+                            return next;
+                          });
+                        }}
+                      />
+                      <div className="flex-1">
+                        <span className="font-medium text-sm">{courier.name}</span>
+                        <span className="text-xs text-muted-foreground ml-2">
+                          {courier.estimated_days}
+                        </span>
+                      </div>
+                      <span className="text-sm font-semibold text-primary">₱{courier.base_fee}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
 
               {/* Description */}

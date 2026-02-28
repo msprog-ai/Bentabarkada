@@ -178,12 +178,12 @@ const DeliveryStatusTracker = ({
 
   return (
     <div className="space-y-6">
-      {/* Delivery Method Badge */}
-      {deliveryMethod && (
+      {/* Courier Badge */}
+      {deliveryProvider && (
         <div className="flex items-center gap-2 text-sm">
-          <span className="text-muted-foreground">Delivery by:</span>
-          <span className="font-medium px-2 py-1 rounded-full bg-muted">
-            {deliveryMethod === 'buyer_book' ? 'Buyer-booked rider' : 'Seller-booked delivery'}
+          <span className="text-muted-foreground">Shipping via:</span>
+          <span className="font-medium px-3 py-1 rounded-full bg-primary/10 text-primary">
+            {deliveryProvider}
           </span>
         </div>
       )}
