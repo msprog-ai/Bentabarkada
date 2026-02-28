@@ -110,10 +110,7 @@ export const PostItemForm = ({ onClose, onSuccess }: PostItemFormProps) => {
       return;
     }
 
-    if (selectedCouriers.size === 0) {
-      toast.error('Please select at least one shipping option');
-      return;
-    }
+    // Shipping options are optional - buyers choose at checkout
 
     setIsSubmitting(true);
 
@@ -168,7 +165,7 @@ export const PostItemForm = ({ onClose, onSuccess }: PostItemFormProps) => {
         .limit(1)
         .single();
 
-      if (newListing) {
+      if (newListing && selectedCouriers.size > 0) {
         const courierInserts = [...selectedCouriers].map(courierId => ({
           listing_id: newListing.id,
           courier_id: courierId,
@@ -361,10 +358,10 @@ export const PostItemForm = ({ onClose, onSuccess }: PostItemFormProps) => {
               <div>
                 <Label className="flex items-center gap-2 mb-3">
                   <Truck className="w-4 h-4" />
-                  Shipping Options *
+                  Shipping Options (Optional)
                 </Label>
                 <p className="text-xs text-muted-foreground mb-3">
-                  Select which couriers you support for this item
+                  Select couriers you support. Buyers choose their preferred option at checkout.
                 </p>
                 <div className="grid gap-2">
                   {couriers.map((courier) => (
