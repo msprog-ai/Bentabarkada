@@ -8,7 +8,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ShieldCheck, Package, ShoppingBag, Users, AlertTriangle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { ShieldCheck, Package, ShoppingBag, Users, AlertTriangle, UserCheck, Eye, Check, X, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 const AdminDashboard = () => {
   const { user, loading: authLoading } = useAuth();
@@ -19,6 +23,11 @@ const AdminDashboard = () => {
   const [data, setData] = useState<any[]>([]);
   const [dataLoading, setDataLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Verification review state
+  const [reviewingVerification, setReviewingVerification] = useState<any | null>(null);
+  const [rejectionReason, setRejectionReason] = useState('');
+  const [actionLoading, setActionLoading] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) navigate('/auth');
@@ -39,6 +48,50 @@ const AdminDashboard = () => {
       setData([]);
     }
     setDataLoading(false);
+  };
+
+  const handleVerificationAction = async (action: 'approve_verification' | 'reject_verification') => {
+    if (!reviewingVerification) return;
+    if (action === 'reject_verification' && !rejectionReason.trim()) {
+      toast.error('Please provide a reason for rejection');
+      return;
+    }
+    setActionLoading(true);
+    try {
+      const { data: { session } } = await (await import('@/integrations/supabase/client')).supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
+
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-data`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: JSON.stringify({
+            action,
+            verification_id: reviewingVerification.id,
+            rejection_reason: rejectionReason || undefined,
+          }),
+        }
+      );
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed');
+      }
+
+      toast.success(action === 'approve_verification' ? 'Seller approved!' : 'Verification rejected');
+      setReviewingVerification(null);
+      setRejectionReason('');
+      loadData('verifications');
+    } catch (err: any) {
+      toast.error(err.message || 'Action failed');
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   if (authLoading || adminLoading) {
@@ -62,6 +115,8 @@ const AdminDashboard = () => {
       shipped: 'bg-purple-500/10 text-purple-600',
       delivered: 'bg-green-500/10 text-green-600',
       cancelled: 'bg-red-500/10 text-red-600',
+      approved: 'bg-green-500/10 text-green-600',
+      rejected: 'bg-red-500/10 text-red-600',
     };
     return map[status] || 'bg-muted text-muted-foreground';
   };
@@ -70,6 +125,16 @@ const AdminDashboard = () => {
     orders: data.length,
     pending: data.filter((d: any) => d.status === 'pending').length,
     delivered: data.filter((d: any) => d.status === 'delivered').length,
+  };
+
+  const ID_TYPE_LABELS: Record<string, string> = {
+    philippine_id: 'Philippine National ID',
+    drivers_license: "Driver's License",
+    passport: 'Passport',
+    sss_id: 'SSS ID',
+    philhealth_id: 'PhilHealth ID',
+    voters_id: "Voter's ID",
+    postal_id: 'Postal ID',
   };
 
   return (
@@ -92,6 +157,9 @@ const AdminDashboard = () => {
             </TabsTrigger>
             <TabsTrigger value="users" className="gap-2">
               <Users className="w-4 h-4" /> Users
+            </TabsTrigger>
+            <TabsTrigger value="verifications" className="gap-2">
+              <UserCheck className="w-4 h-4" /> Verifications
             </TabsTrigger>
           </TabsList>
 
@@ -245,8 +313,207 @@ const AdminDashboard = () => {
               </div>
             )}
           </TabsContent>
+
+          {/* Verifications Tab */}
+          <TabsContent value="verifications">
+            {dataLoading ? (
+              <Skeleton className="h-64 w-full" />
+            ) : data.length === 0 ? (
+              <EmptyState icon={UserCheck} message="No verification requests" />
+            ) : (
+              <div className="space-y-4">
+                {/* Stats */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                  <Card>
+                    <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Pending Review</CardTitle></CardHeader>
+                    <CardContent><p className="text-2xl font-bold text-yellow-600">{data.filter((v: any) => v.status === 'pending').length}</p></CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Approved</CardTitle></CardHeader>
+                    <CardContent><p className="text-2xl font-bold text-green-600">{data.filter((v: any) => v.status === 'approved').length}</p></CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Rejected</CardTitle></CardHeader>
+                    <CardContent><p className="text-2xl font-bold text-red-600">{data.filter((v: any) => v.status === 'rejected').length}</p></CardContent>
+                  </Card>
+                </div>
+
+                <div className="rounded-lg border overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead>Phone</TableHead>
+                        <TableHead>ID Type</TableHead>
+                        <TableHead>Phone Verified</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {data.map((v: any) => (
+                        <TableRow key={v.id}>
+                          <TableCell className="font-medium">{v.full_name}</TableCell>
+                          <TableCell className="text-xs">{v.email}</TableCell>
+                          <TableCell className="text-xs">{v.phone}</TableCell>
+                          <TableCell className="text-xs">{ID_TYPE_LABELS[v.id_type] || v.id_type}</TableCell>
+                          <TableCell>
+                            {v.phone_verified
+                              ? <Badge className="bg-green-500/10 text-green-600">Yes</Badge>
+                              : <Badge variant="outline">No</Badge>
+                            }
+                          </TableCell>
+                          <TableCell><Badge className={statusColor(v.status)}>{v.status}</Badge></TableCell>
+                          <TableCell className="text-xs text-muted-foreground">
+                            {new Date(v.created_at).toLocaleDateString()}
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="gap-1"
+                              onClick={() => setReviewingVerification(v)}
+                            >
+                              <Eye className="w-3 h-3" /> Review
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            )}
+          </TabsContent>
         </Tabs>
       </div>
+
+      {/* Verification Review Dialog */}
+      <Dialog open={!!reviewingVerification} onOpenChange={() => { setReviewingVerification(null); setRejectionReason(''); }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserCheck className="w-5 h-5" />
+              Review Verification - {reviewingVerification?.full_name}
+            </DialogTitle>
+          </DialogHeader>
+
+          {reviewingVerification && (
+            <div className="space-y-6">
+              {/* Basic Info */}
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <p className="text-muted-foreground">Full Name</p>
+                  <p className="font-medium">{reviewingVerification.full_name}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Email</p>
+                  <p className="font-medium">{reviewingVerification.email}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Phone</p>
+                  <p className="font-medium">{reviewingVerification.phone}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Phone Verified</p>
+                  <p className="font-medium">{reviewingVerification.phone_verified ? '✅ Yes' : '❌ No'}</p>
+                </div>
+                <div className="col-span-2">
+                  <p className="text-muted-foreground">Address</p>
+                  <p className="font-medium">{reviewingVerification.address}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">ID Type</p>
+                  <p className="font-medium">{ID_TYPE_LABELS[reviewingVerification.id_type] || reviewingVerification.id_type}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Status</p>
+                  <Badge className={statusColor(reviewingVerification.status)}>{reviewingVerification.status}</Badge>
+                </div>
+              </div>
+
+              {/* Documents */}
+              <div>
+                <h4 className="font-medium mb-3">Submitted Documents</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {reviewingVerification.id_front_url_signed && (
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">ID Front</p>
+                      <img
+                        src={reviewingVerification.id_front_url_signed}
+                        alt="ID Front"
+                        className="w-full h-48 object-cover rounded-lg border"
+                      />
+                    </div>
+                  )}
+                  {reviewingVerification.id_back_url_signed && (
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">ID Back</p>
+                      <img
+                        src={reviewingVerification.id_back_url_signed}
+                        alt="ID Back"
+                        className="w-full h-48 object-cover rounded-lg border"
+                      />
+                    </div>
+                  )}
+                  {reviewingVerification.selfie_url_signed && (
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">Selfie with ID</p>
+                      <img
+                        src={reviewingVerification.selfie_url_signed}
+                        alt="Selfie"
+                        className="w-full h-48 object-cover rounded-lg border"
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {reviewingVerification.rejection_reason && (
+                <div className="bg-destructive/10 p-3 rounded-lg text-sm">
+                  <p className="font-medium text-destructive">Previous Rejection Reason:</p>
+                  <p>{reviewingVerification.rejection_reason}</p>
+                </div>
+              )}
+
+              {reviewingVerification.status === 'pending' && (
+                <>
+                  <div>
+                    <label className="text-sm font-medium block mb-2">Rejection Reason (required if rejecting)</label>
+                    <Input
+                      placeholder="e.g., ID is blurry, selfie doesn't match..."
+                      value={rejectionReason}
+                      onChange={(e) => setRejectionReason(e.target.value)}
+                    />
+                  </div>
+
+                  <DialogFooter className="gap-2">
+                    <Button
+                      variant="outline"
+                      className="text-destructive border-destructive/30 hover:bg-destructive/10 gap-1"
+                      onClick={() => handleVerificationAction('reject_verification')}
+                      disabled={actionLoading}
+                    >
+                      {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4" />}
+                      Reject
+                    </Button>
+                    <Button
+                      className="hero-gradient border-0 gap-1"
+                      onClick={() => handleVerificationAction('approve_verification')}
+                      disabled={actionLoading}
+                    >
+                      {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                      Approve Seller
+                    </Button>
+                  </DialogFooter>
+                </>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

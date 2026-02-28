@@ -424,6 +424,63 @@ export type Database = {
         }
         Relationships: []
       }
+      seller_verifications: {
+        Row: {
+          address: string
+          created_at: string
+          full_name: string
+          id: string
+          id_back_url: string | null
+          id_front_url: string | null
+          id_type: string
+          phone: string
+          phone_verified: boolean
+          rejection_reason: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          selfie_url: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          address: string
+          created_at?: string
+          full_name: string
+          id?: string
+          id_back_url?: string | null
+          id_front_url?: string | null
+          id_type: string
+          phone: string
+          phone_verified?: boolean
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          selfie_url?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          address?: string
+          created_at?: string
+          full_name?: string
+          id?: string
+          id_back_url?: string | null
+          id_front_url?: string | null
+          id_type?: string
+          phone?: string
+          phone_verified?: boolean
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          selfie_url?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       shipping_couriers: {
         Row: {
           base_fee: number

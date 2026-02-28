@@ -53,6 +53,39 @@ Deno.serve(async (req) => {
     const url = new URL(req.url);
     const tab = url.searchParams.get("tab") || "orders";
 
+    // Handle verification actions via POST
+    if (req.method === "POST") {
+      const body = await req.json();
+      
+      if (body.action === "approve_verification" || body.action === "reject_verification") {
+        const status = body.action === "approve_verification" ? "approved" : "rejected";
+        const updateData: any = {
+          status,
+          reviewed_by: user.id,
+          reviewed_at: new Date().toISOString(),
+        };
+        if (body.rejection_reason) {
+          updateData.rejection_reason = body.rejection_reason;
+        }
+
+        const { error } = await adminClient
+          .from("seller_verifications")
+          .update(updateData)
+          .eq("id", body.verification_id);
+
+        if (error) {
+          return new Response(JSON.stringify({ error: error.message }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
     let data: any = null;
 
     if (tab === "orders") {
@@ -62,7 +95,6 @@ Deno.serve(async (req) => {
         .order("created_at", { ascending: false })
         .limit(100);
 
-      // Get buyer/seller profiles
       const userIds = new Set<string>();
       orders?.forEach((o: any) => { userIds.add(o.buyer_id); userIds.add(o.seller_id); });
       const { data: profiles } = await adminClient
@@ -106,12 +138,10 @@ Deno.serve(async (req) => {
         .order("created_at", { ascending: false })
         .limit(200);
 
-      // Get auth user emails
       const { data: { users: authUsers } } = await adminClient.auth.admin.listUsers({ perPage: 1000 });
       const emailMap: Record<string, string> = {};
       authUsers?.forEach((u: any) => { emailMap[u.id] = u.email || ""; });
 
-      // Get roles
       const { data: roles } = await adminClient.from("user_roles").select("*");
       const roleMap: Record<string, string[]> = {};
       roles?.forEach((r: any) => {
@@ -124,6 +154,51 @@ Deno.serve(async (req) => {
         email: emailMap[p.user_id] || "",
         roles: roleMap[p.user_id] || [],
       }));
+    } else if (tab === "verifications") {
+      const { data: verifications } = await adminClient
+        .from("seller_verifications")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(200);
+
+      // Get profile names and emails
+      const userIds = new Set<string>();
+      verifications?.forEach((v: any) => userIds.add(v.user_id));
+      
+      const { data: profiles } = await adminClient
+        .from("profiles")
+        .select("user_id, display_name")
+        .in("user_id", Array.from(userIds));
+
+      const { data: { users: authUsers } } = await adminClient.auth.admin.listUsers({ perPage: 1000 });
+      const emailMap: Record<string, string> = {};
+      authUsers?.forEach((u: any) => { emailMap[u.id] = u.email || ""; });
+
+      const profileMap: Record<string, any> = {};
+      profiles?.forEach((p: any) => { profileMap[p.user_id] = p; });
+
+      // Generate signed URLs for documents
+      data = await Promise.all(
+        (verifications || []).map(async (v: any) => {
+          const urls: any = {};
+          
+          for (const field of ['id_front_url', 'id_back_url', 'selfie_url']) {
+            if (v[field]) {
+              const { data: signedData } = await adminClient.storage
+                .from('verification-documents')
+                .createSignedUrl(v[field], 3600); // 1 hour
+              urls[field + '_signed'] = signedData?.signedUrl || null;
+            }
+          }
+
+          return {
+            ...v,
+            ...urls,
+            display_name: profileMap[v.user_id]?.display_name || "Unknown",
+            email: emailMap[v.user_id] || "",
+          };
+        })
+      );
     }
 
     return new Response(JSON.stringify({ data }), {
