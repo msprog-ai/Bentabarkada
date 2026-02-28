@@ -10,9 +10,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useAuth } from '@/hooks/useAuth';
 import { useCart } from '@/hooks/useCart';
 import { useOrders, Address } from '@/hooks/useOrders';
-import { philippineCities, getDeliveryZoneByCity } from '@/data/philippineLocations';
 import { toast } from 'sonner';
-import DeliveryMethodSelector from '@/components/DeliveryMethodSelector';
+import { philippineCities, getDeliveryZoneByCity } from '@/data/philippineLocations';
+import CourierSelector, { Courier } from '@/components/CourierSelector';
 
 const Checkout = () => {
   const navigate = useNavigate();
@@ -23,7 +23,8 @@ const Checkout = () => {
   const [selectedAddress, setSelectedAddress] = useState<string>('');
   const [showAddressForm, setShowAddressForm] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'gcash' | 'maya' | 'qr_ph' | 'cod'>('gcash');
-  const [deliveryMethod, setDeliveryMethod] = useState<'buyer_book' | 'seller_book' | null>(null);
+  const [selectedCourierId, setSelectedCourierId] = useState<string | null>(null);
+  const [selectedCourier, setSelectedCourier] = useState<Courier | null>(null);
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -56,12 +57,8 @@ const Checkout = () => {
   };
 
   const getDeliveryFee = (): number => {
-    const addr = getSelectedAddressData();
-    if (!addr) return 0;
-    
-    const zoneName = getDeliveryZoneByCity(addr.city);
-    const zone = deliveryZones.find(z => z.name === zoneName);
-    return zone?.base_fee || 150; // Default to Luzon rate
+    if (selectedCourier) return selectedCourier.base_fee;
+    return 0;
   };
 
   const deliveryFee = getDeliveryFee();
@@ -113,8 +110,8 @@ const Checkout = () => {
       return;
     }
 
-    if (!deliveryMethod) {
-      toast.error('Please select a delivery method');
+    if (!selectedCourierId) {
+      toast.error('Please select a shipping option');
       return;
     }
 
@@ -156,7 +153,9 @@ const Checkout = () => {
       selectedAddress,
       deliveryFee,
       notes || undefined,
-      deliveryMethod
+      undefined,
+      selectedCourierId || undefined,
+      selectedCourier?.name
     );
 
     setIsSubmitting(false);
@@ -400,15 +399,19 @@ const Checkout = () => {
               )}
             </div>
 
-            {/* Delivery Method */}
+            {/* Shipping Option */}
             <div className="bg-card rounded-2xl p-6 card-shadow">
               <div className="flex items-center gap-2 mb-4">
                 <Truck className="w-5 h-5 text-primary" />
-                <h2 className="text-lg font-semibold">Delivery Method</h2>
+                <h2 className="text-lg font-semibold">Shipping Option</h2>
               </div>
-              <DeliveryMethodSelector
-                value={deliveryMethod}
-                onChange={setDeliveryMethod}
+              <CourierSelector
+                listingIds={cartItems.map(item => item.listing_id)}
+                value={selectedCourierId}
+                onChange={(id, courier) => {
+                  setSelectedCourierId(id);
+                  setSelectedCourier(courier);
+                }}
               />
             </div>
 

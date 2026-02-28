@@ -129,6 +129,45 @@ export type Database = {
         }
         Relationships: []
       }
+      listing_couriers: {
+        Row: {
+          courier_id: string
+          created_at: string
+          id: string
+          listing_id: string
+          shipping_fee: number | null
+        }
+        Insert: {
+          courier_id: string
+          created_at?: string
+          id?: string
+          listing_id: string
+          shipping_fee?: number | null
+        }
+        Update: {
+          courier_id?: string
+          created_at?: string
+          id?: string
+          listing_id?: string
+          shipping_fee?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "listing_couriers_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: false
+            referencedRelation: "shipping_couriers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "listing_couriers_listing_id_fkey"
+            columns: ["listing_id"]
+            isOneToOne: false
+            referencedRelation: "listings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       listings: {
         Row: {
           category: string
@@ -272,6 +311,7 @@ export type Database = {
         Row: {
           address_id: string | null
           buyer_id: string
+          courier_id: string | null
           created_at: string
           delivery_fee: number
           delivery_method: string | null
@@ -293,6 +333,7 @@ export type Database = {
         Insert: {
           address_id?: string | null
           buyer_id: string
+          courier_id?: string | null
           created_at?: string
           delivery_fee?: number
           delivery_method?: string | null
@@ -314,6 +355,7 @@ export type Database = {
         Update: {
           address_id?: string | null
           buyer_id?: string
+          courier_id?: string | null
           created_at?: string
           delivery_fee?: number
           delivery_method?: string | null
@@ -338,6 +380,13 @@ export type Database = {
             columns: ["address_id"]
             isOneToOne: false
             referencedRelation: "addresses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: false
+            referencedRelation: "shipping_couriers"
             referencedColumns: ["id"]
           },
         ]
@@ -372,6 +421,36 @@ export type Database = {
           rating?: number | null
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      shipping_couriers: {
+        Row: {
+          base_fee: number
+          created_at: string
+          estimated_days: string
+          id: string
+          is_active: boolean
+          logo_url: string | null
+          name: string
+        }
+        Insert: {
+          base_fee?: number
+          created_at?: string
+          estimated_days: string
+          id?: string
+          is_active?: boolean
+          logo_url?: string | null
+          name: string
+        }
+        Update: {
+          base_fee?: number
+          created_at?: string
+          estimated_days?: string
+          id?: string
+          is_active?: boolean
+          logo_url?: string | null
+          name?: string
         }
         Relationships: []
       }

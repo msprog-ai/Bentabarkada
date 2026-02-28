@@ -186,7 +186,9 @@ export const useOrders = () => {
     addressId: string,
     deliveryFee: number,
     notes?: string,
-    deliveryMethod?: 'buyer_book' | 'seller_book'
+    deliveryMethod?: 'buyer_book' | 'seller_book',
+    courierId?: string,
+    courierName?: string
   ) => {
     if (!user) return { error: new Error('Not authenticated') };
 
@@ -214,7 +216,9 @@ export const useOrders = () => {
           total: sellerTotal,
           notes,
           delivery_method: deliveryMethod,
-          delivery_status: 'pending'
+          delivery_status: 'pending',
+          courier_id: courierId,
+          delivery_provider: courierName,
         })
         .select()
         .single();
