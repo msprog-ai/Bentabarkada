@@ -2,6 +2,7 @@ export interface ListingItem {
   id: string;
   title: string;
   price: number;
+  quantity?: number;
   description: string;
   image: string;
   category: string;
@@ -15,6 +16,7 @@ export interface ListingItem {
   condition: 'new' | 'like-new' | 'good' | 'fair';
   createdAt: Date;
   isFavorite?: boolean;
+  approval_status?: string;
 }
 
 export type Category = {

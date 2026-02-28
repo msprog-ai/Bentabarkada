@@ -416,6 +416,9 @@ const Profile = () => {
                           trackingNumber={order.tracking_number}
                           deliveryProvider={order.delivery_provider}
                           proofOfDeliveryUrl={order.proof_of_delivery_url}
+                          pickupPhotoUrl={order.pickup_photo_url}
+                          riderTrackingLink={order.rider_tracking_link}
+                          deliveryCheckpoint={order.delivery_checkpoint}
                           isBuyer={true}
                           onUpdate={refetchOrders}
                         />

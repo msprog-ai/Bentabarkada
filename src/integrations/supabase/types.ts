@@ -170,6 +170,7 @@ export type Database = {
       }
       listings: {
         Row: {
+          approval_status: string
           category: string
           city: string | null
           complete_address: string | null
@@ -181,11 +182,13 @@ export type Database = {
           image_url: string | null
           location: string
           price: number
+          quantity: number
           title: string
           updated_at: string
           user_id: string
         }
         Insert: {
+          approval_status?: string
           category: string
           city?: string | null
           complete_address?: string | null
@@ -197,11 +200,13 @@ export type Database = {
           image_url?: string | null
           location: string
           price: number
+          quantity?: number
           title: string
           updated_at?: string
           user_id: string
         }
         Update: {
+          approval_status?: string
           category?: string
           city?: string | null
           complete_address?: string | null
@@ -213,6 +218,7 @@ export type Database = {
           image_url?: string | null
           location?: string
           price?: number
+          quantity?: number
           title?: string
           updated_at?: string
           user_id?: string
@@ -313,6 +319,7 @@ export type Database = {
           buyer_id: string
           courier_id: string | null
           created_at: string
+          delivery_checkpoint: string | null
           delivery_fee: number
           delivery_method: string | null
           delivery_provider: string | null
@@ -320,9 +327,11 @@ export type Database = {
           id: string
           notes: string | null
           payment_method: Database["public"]["Enums"]["payment_method"]
+          pickup_photo_url: string | null
           proof_of_delivery_url: string | null
           rider_name: string | null
           rider_phone: string | null
+          rider_tracking_link: string | null
           seller_id: string
           status: Database["public"]["Enums"]["order_status"]
           subtotal: number
@@ -335,6 +344,7 @@ export type Database = {
           buyer_id: string
           courier_id?: string | null
           created_at?: string
+          delivery_checkpoint?: string | null
           delivery_fee?: number
           delivery_method?: string | null
           delivery_provider?: string | null
@@ -342,9 +352,11 @@ export type Database = {
           id?: string
           notes?: string | null
           payment_method: Database["public"]["Enums"]["payment_method"]
+          pickup_photo_url?: string | null
           proof_of_delivery_url?: string | null
           rider_name?: string | null
           rider_phone?: string | null
+          rider_tracking_link?: string | null
           seller_id: string
           status?: Database["public"]["Enums"]["order_status"]
           subtotal: number
@@ -357,6 +369,7 @@ export type Database = {
           buyer_id?: string
           courier_id?: string | null
           created_at?: string
+          delivery_checkpoint?: string | null
           delivery_fee?: number
           delivery_method?: string | null
           delivery_provider?: string | null
@@ -364,9 +377,11 @@ export type Database = {
           id?: string
           notes?: string | null
           payment_method?: Database["public"]["Enums"]["payment_method"]
+          pickup_photo_url?: string | null
           proof_of_delivery_url?: string | null
           rider_name?: string | null
           rider_phone?: string | null
+          rider_tracking_link?: string | null
           seller_id?: string
           status?: Database["public"]["Enums"]["order_status"]
           subtotal?: number
@@ -397,6 +412,7 @@ export type Database = {
           created_at: string
           display_name: string | null
           id: string
+          is_approved: boolean
           phone: string | null
           rating: number | null
           updated_at: string
@@ -407,6 +423,7 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           id?: string
+          is_approved?: boolean
           phone?: string | null
           rating?: number | null
           updated_at?: string
@@ -417,6 +434,7 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           id?: string
+          is_approved?: boolean
           phone?: string | null
           rating?: number | null
           updated_at?: string

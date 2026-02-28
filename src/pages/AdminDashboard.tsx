@@ -11,7 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { ShieldCheck, Package, ShoppingBag, Users, AlertTriangle, UserCheck, Eye, Check, X, Loader2 } from 'lucide-react';
+import { ShieldCheck, Package, ShoppingBag, Users, UserCheck, Eye, Check, X, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 const AdminDashboard = () => {
@@ -28,6 +28,9 @@ const AdminDashboard = () => {
   const [reviewingVerification, setReviewingVerification] = useState<any | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
+
+  // Listing review state
+  const [reviewingListing, setReviewingListing] = useState<any | null>(null);
 
   useEffect(() => {
     if (!authLoading && !user) navigate('/auth');
@@ -50,12 +53,7 @@ const AdminDashboard = () => {
     setDataLoading(false);
   };
 
-  const handleVerificationAction = async (action: 'approve_verification' | 'reject_verification') => {
-    if (!reviewingVerification) return;
-    if (action === 'reject_verification' && !rejectionReason.trim()) {
-      toast.error('Please provide a reason for rejection');
-      return;
-    }
+  const callAdminAction = async (body: Record<string, any>) => {
     setActionLoading(true);
     try {
       const { data: { session } } = await (await import('@/integrations/supabase/client')).supabase.auth.getSession();
@@ -70,11 +68,7 @@ const AdminDashboard = () => {
             'Content-Type': 'application/json',
             apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
           },
-          body: JSON.stringify({
-            action,
-            verification_id: reviewingVerification.id,
-            rejection_reason: rejectionReason || undefined,
-          }),
+          body: JSON.stringify(body),
         }
       );
 
@@ -82,15 +76,48 @@ const AdminDashboard = () => {
         const err = await res.json();
         throw new Error(err.error || 'Failed');
       }
+      return true;
+    } catch (err: any) {
+      toast.error(err.message || 'Action failed');
+      return false;
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
+  const handleVerificationAction = async (action: 'approve_verification' | 'reject_verification') => {
+    if (!reviewingVerification) return;
+    if (action === 'reject_verification' && !rejectionReason.trim()) {
+      toast.error('Please provide a reason for rejection');
+      return;
+    }
+    const success = await callAdminAction({
+      action,
+      verification_id: reviewingVerification.id,
+      rejection_reason: rejectionReason || undefined,
+    });
+    if (success) {
       toast.success(action === 'approve_verification' ? 'Seller approved!' : 'Verification rejected');
       setReviewingVerification(null);
       setRejectionReason('');
       loadData('verifications');
-    } catch (err: any) {
-      toast.error(err.message || 'Action failed');
-    } finally {
-      setActionLoading(false);
+    }
+  };
+
+  const handleListingAction = async (action: 'approve_listing' | 'reject_listing', listingId: string) => {
+    const success = await callAdminAction({ action, listing_id: listingId });
+    if (success) {
+      toast.success(action === 'approve_listing' ? 'Listing approved!' : 'Listing rejected');
+      setReviewingListing(null);
+      loadData('listings');
+    }
+  };
+
+  const handleUserAction = async (action: 'approve_user' | 'reject_user', userId: string) => {
+    const success = await callAdminAction({ action, user_id: userId });
+    if (success) {
+      toast.success(action === 'approve_user' ? 'User approved!' : 'User access revoked');
+      loadData('users');
     }
   };
 
@@ -119,12 +146,6 @@ const AdminDashboard = () => {
       rejected: 'bg-red-500/10 text-red-600',
     };
     return map[status] || 'bg-muted text-muted-foreground';
-  };
-
-  const stats = {
-    orders: data.length,
-    pending: data.filter((d: any) => d.status === 'pending').length,
-    delivered: data.filter((d: any) => d.status === 'delivered').length,
   };
 
   const ID_TYPE_LABELS: Record<string, string> = {
@@ -170,15 +191,15 @@ const AdminDashboard = () => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                   <Card>
                     <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Total Orders</CardTitle></CardHeader>
-                    <CardContent><p className="text-2xl font-bold">{stats.orders}</p></CardContent>
+                    <CardContent><p className="text-2xl font-bold">{data.length}</p></CardContent>
                   </Card>
                   <Card>
                     <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Pending</CardTitle></CardHeader>
-                    <CardContent><p className="text-2xl font-bold text-yellow-600">{stats.pending}</p></CardContent>
+                    <CardContent><p className="text-2xl font-bold text-yellow-600">{data.filter((d: any) => d.status === 'pending').length}</p></CardContent>
                   </Card>
                   <Card>
                     <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Delivered</CardTitle></CardHeader>
-                    <CardContent><p className="text-2xl font-bold text-green-600">{stats.delivered}</p></CardContent>
+                    <CardContent><p className="text-2xl font-bold text-green-600">{data.filter((d: any) => d.status === 'delivered').length}</p></CardContent>
                   </Card>
                 </div>
 
@@ -229,88 +250,174 @@ const AdminDashboard = () => {
             )}
           </TabsContent>
 
-          {/* Listings Tab */}
+          {/* Listings Tab - with approval */}
           <TabsContent value="listings">
             {dataLoading ? (
               <Skeleton className="h-64 w-full" />
             ) : data.length === 0 ? (
               <EmptyState icon={ShoppingBag} message="No listings yet" />
             ) : (
-              <div className="rounded-lg border overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Title</TableHead>
-                      <TableHead>Seller</TableHead>
-                      <TableHead>Price</TableHead>
-                      <TableHead>Category</TableHead>
-                      <TableHead>Condition</TableHead>
-                      <TableHead>Location</TableHead>
-                      <TableHead>Date</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {data.map((listing: any) => (
-                      <TableRow key={listing.id}>
-                        <TableCell className="font-medium max-w-[200px] truncate">{listing.title}</TableCell>
-                        <TableCell>{listing.seller_name}</TableCell>
-                        <TableCell>₱{Number(listing.price).toLocaleString()}</TableCell>
-                        <TableCell><Badge variant="outline">{listing.category}</Badge></TableCell>
-                        <TableCell>{listing.condition}</TableCell>
-                        <TableCell className="text-xs">{listing.location}</TableCell>
-                        <TableCell className="text-xs text-muted-foreground">
-                          {new Date(listing.created_at).toLocaleDateString()}
-                        </TableCell>
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                  <Card>
+                    <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Pending Review</CardTitle></CardHeader>
+                    <CardContent><p className="text-2xl font-bold text-yellow-600">{data.filter((l: any) => l.approval_status === 'pending').length}</p></CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Approved</CardTitle></CardHeader>
+                    <CardContent><p className="text-2xl font-bold text-green-600">{data.filter((l: any) => l.approval_status === 'approved').length}</p></CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Rejected</CardTitle></CardHeader>
+                    <CardContent><p className="text-2xl font-bold text-red-600">{data.filter((l: any) => l.approval_status === 'rejected').length}</p></CardContent>
+                  </Card>
+                </div>
+
+                <div className="rounded-lg border overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Image</TableHead>
+                        <TableHead>Title</TableHead>
+                        <TableHead>Seller</TableHead>
+                        <TableHead>Price</TableHead>
+                        <TableHead>Qty</TableHead>
+                        <TableHead>Category</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Actions</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+                    </TableHeader>
+                    <TableBody>
+                      {data.map((listing: any) => (
+                        <TableRow key={listing.id}>
+                          <TableCell>
+                            {listing.image_url && (
+                              <img src={listing.image_url} alt={listing.title} className="w-12 h-12 rounded-lg object-cover" />
+                            )}
+                          </TableCell>
+                          <TableCell className="font-medium max-w-[200px] truncate">{listing.title}</TableCell>
+                          <TableCell>{listing.seller_name}</TableCell>
+                          <TableCell>₱{Number(listing.price).toLocaleString()}</TableCell>
+                          <TableCell>{listing.quantity || 1}</TableCell>
+                          <TableCell><Badge variant="outline">{listing.category}</Badge></TableCell>
+                          <TableCell><Badge className={statusColor(listing.approval_status || 'pending')}>{listing.approval_status || 'pending'}</Badge></TableCell>
+                          <TableCell className="text-xs text-muted-foreground">
+                            {new Date(listing.created_at).toLocaleDateString()}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="gap-1"
+                                onClick={() => setReviewingListing(listing)}
+                              >
+                                <Eye className="w-3 h-3" /> Review
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </>
             )}
           </TabsContent>
 
-          {/* Users Tab */}
+          {/* Users Tab - with approval */}
           <TabsContent value="users">
             {dataLoading ? (
               <Skeleton className="h-64 w-full" />
             ) : data.length === 0 ? (
               <EmptyState icon={Users} message="No users yet" />
             ) : (
-              <div className="rounded-lg border overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Email</TableHead>
-                      <TableHead>Phone</TableHead>
-                      <TableHead>Rating</TableHead>
-                      <TableHead>Roles</TableHead>
-                      <TableHead>Joined</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {data.map((profile: any) => (
-                      <TableRow key={profile.id}>
-                        <TableCell className="font-medium">{profile.display_name || 'No name'}</TableCell>
-                        <TableCell className="text-xs">{profile.email}</TableCell>
-                        <TableCell>{profile.phone || '-'}</TableCell>
-                        <TableCell>{profile.rating ? `⭐ ${profile.rating}` : '-'}</TableCell>
-                        <TableCell>
-                          {profile.roles?.length > 0
-                            ? profile.roles.map((r: string) => (
-                                <Badge key={r} className="mr-1" variant="outline">{r}</Badge>
-                              ))
-                            : <span className="text-muted-foreground text-xs">user</span>
-                          }
-                        </TableCell>
-                        <TableCell className="text-xs text-muted-foreground">
-                          {new Date(profile.created_at).toLocaleDateString()}
-                        </TableCell>
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                  <Card>
+                    <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Pending Approval</CardTitle></CardHeader>
+                    <CardContent><p className="text-2xl font-bold text-yellow-600">{data.filter((u: any) => !u.is_approved).length}</p></CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Approved</CardTitle></CardHeader>
+                    <CardContent><p className="text-2xl font-bold text-green-600">{data.filter((u: any) => u.is_approved).length}</p></CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Total Users</CardTitle></CardHeader>
+                    <CardContent><p className="text-2xl font-bold">{data.length}</p></CardContent>
+                  </Card>
+                </div>
+
+                <div className="rounded-lg border overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead>Phone</TableHead>
+                        <TableHead>Rating</TableHead>
+                        <TableHead>Roles</TableHead>
+                        <TableHead>Approved</TableHead>
+                        <TableHead>Joined</TableHead>
+                        <TableHead>Actions</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+                    </TableHeader>
+                    <TableBody>
+                      {data.map((profile: any) => (
+                        <TableRow key={profile.id}>
+                          <TableCell className="font-medium">{profile.display_name || 'No name'}</TableCell>
+                          <TableCell className="text-xs">{profile.email}</TableCell>
+                          <TableCell>{profile.phone || '-'}</TableCell>
+                          <TableCell>{profile.rating ? `⭐ ${profile.rating}` : '-'}</TableCell>
+                          <TableCell>
+                            {profile.roles?.length > 0
+                              ? profile.roles.map((r: string) => (
+                                  <Badge key={r} className="mr-1" variant="outline">{r}</Badge>
+                                ))
+                              : <span className="text-muted-foreground text-xs">user</span>
+                            }
+                          </TableCell>
+                          <TableCell>
+                            {profile.is_approved
+                              ? <Badge className="bg-green-500/10 text-green-600">Approved</Badge>
+                              : <Badge className="bg-yellow-500/10 text-yellow-600">Pending</Badge>
+                            }
+                          </TableCell>
+                          <TableCell className="text-xs text-muted-foreground">
+                            {new Date(profile.created_at).toLocaleDateString()}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1">
+                              {!profile.is_approved ? (
+                                <Button
+                                  size="sm"
+                                  className="gap-1 hero-gradient border-0"
+                                  onClick={() => handleUserAction('approve_user', profile.user_id)}
+                                  disabled={actionLoading}
+                                >
+                                  {actionLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                                  Approve
+                                </Button>
+                              ) : (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="gap-1 text-red-600"
+                                  onClick={() => handleUserAction('reject_user', profile.user_id)}
+                                  disabled={actionLoading}
+                                >
+                                  <X className="w-3 h-3" /> Revoke
+                                </Button>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </>
             )}
           </TabsContent>
 
@@ -322,7 +429,6 @@ const AdminDashboard = () => {
               <EmptyState icon={UserCheck} message="No verification requests" />
             ) : (
               <div className="space-y-4">
-                {/* Stats */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                   <Card>
                     <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Pending Review</CardTitle></CardHeader>
@@ -402,7 +508,6 @@ const AdminDashboard = () => {
 
           {reviewingVerification && (
             <div className="space-y-6">
-              {/* Basic Info */}
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <p className="text-muted-foreground">Full Name</p>
@@ -434,38 +539,25 @@ const AdminDashboard = () => {
                 </div>
               </div>
 
-              {/* Documents */}
               <div>
                 <h4 className="font-medium mb-3">Submitted Documents</h4>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {reviewingVerification.id_front_url_signed && (
                     <div>
                       <p className="text-xs text-muted-foreground mb-1">ID Front</p>
-                      <img
-                        src={reviewingVerification.id_front_url_signed}
-                        alt="ID Front"
-                        className="w-full h-48 object-cover rounded-lg border"
-                      />
+                      <img src={reviewingVerification.id_front_url_signed} alt="ID Front" className="w-full h-48 object-cover rounded-lg border" />
                     </div>
                   )}
                   {reviewingVerification.id_back_url_signed && (
                     <div>
                       <p className="text-xs text-muted-foreground mb-1">ID Back</p>
-                      <img
-                        src={reviewingVerification.id_back_url_signed}
-                        alt="ID Back"
-                        className="w-full h-48 object-cover rounded-lg border"
-                      />
+                      <img src={reviewingVerification.id_back_url_signed} alt="ID Back" className="w-full h-48 object-cover rounded-lg border" />
                     </div>
                   )}
                   {reviewingVerification.selfie_url_signed && (
                     <div>
                       <p className="text-xs text-muted-foreground mb-1">Selfie with ID</p>
-                      <img
-                        src={reviewingVerification.selfie_url_signed}
-                        alt="Selfie"
-                        className="w-full h-48 object-cover rounded-lg border"
-                      />
+                      <img src={reviewingVerification.selfie_url_signed} alt="Selfie" className="w-full h-48 object-cover rounded-lg border" />
                     </div>
                   )}
                 </div>
@@ -509,6 +601,88 @@ const AdminDashboard = () => {
                     </Button>
                   </DialogFooter>
                 </>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Listing Review Dialog */}
+      <Dialog open={!!reviewingListing} onOpenChange={() => setReviewingListing(null)}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ShoppingBag className="w-5 h-5" />
+              Review Listing
+            </DialogTitle>
+          </DialogHeader>
+
+          {reviewingListing && (
+            <div className="space-y-4">
+              {reviewingListing.image_url && (
+                <img src={reviewingListing.image_url} alt={reviewingListing.title} className="w-full h-64 object-cover rounded-xl" />
+              )}
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <p className="text-muted-foreground">Title</p>
+                  <p className="font-medium">{reviewingListing.title}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Price</p>
+                  <p className="font-medium">₱{Number(reviewingListing.price).toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Quantity</p>
+                  <p className="font-medium">{reviewingListing.quantity || 1}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Seller</p>
+                  <p className="font-medium">{reviewingListing.seller_name}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Category</p>
+                  <Badge variant="outline">{reviewingListing.category}</Badge>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Condition</p>
+                  <p className="font-medium capitalize">{reviewingListing.condition}</p>
+                </div>
+                <div className="col-span-2">
+                  <p className="text-muted-foreground">Location</p>
+                  <p className="font-medium">{reviewingListing.location}</p>
+                </div>
+                <div className="col-span-2">
+                  <p className="text-muted-foreground">Description</p>
+                  <p className="font-medium">{reviewingListing.description}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Current Status</p>
+                  <Badge className={statusColor(reviewingListing.approval_status || 'pending')}>
+                    {reviewingListing.approval_status || 'pending'}
+                  </Badge>
+                </div>
+              </div>
+
+              {(reviewingListing.approval_status === 'pending' || !reviewingListing.approval_status) && (
+                <DialogFooter className="gap-2">
+                  <Button
+                    variant="outline"
+                    className="text-destructive border-destructive/30 hover:bg-destructive/10 gap-1"
+                    onClick={() => handleListingAction('reject_listing', reviewingListing.id)}
+                    disabled={actionLoading}
+                  >
+                    {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4" />}
+                    Reject
+                  </Button>
+                  <Button
+                    className="hero-gradient border-0 gap-1"
+                    onClick={() => handleListingAction('approve_listing', reviewingListing.id)}
+                    disabled={actionLoading}
+                  >
+                    {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                    Approve Listing
+                  </Button>
+                </DialogFooter>
               )}
             </div>
           )}

@@ -24,6 +24,7 @@ export const PostItemForm = ({ onClose, onSuccess }: PostItemFormProps) => {
   const [formData, setFormData] = useState({
     title: '',
     price: '',
+    quantity: '1',
     description: '',
     category: '',
     condition: '',
@@ -144,6 +145,7 @@ export const PostItemForm = ({ onClose, onSuccess }: PostItemFormProps) => {
         user_id: user.id,
         title: formData.title,
         price: parseFloat(formData.price),
+        quantity: parseInt(formData.quantity) || 1,
         description: formData.description,
         category: formData.category,
         condition: formData.condition,
@@ -152,6 +154,7 @@ export const PostItemForm = ({ onClose, onSuccess }: PostItemFormProps) => {
         complete_address: formData.complete_address || null,
         delivery_zone_id: deliveryZoneId,
         image_url: imageUrl,
+        approval_status: 'pending',
       });
 
       if (error) throw error;
@@ -173,7 +176,7 @@ export const PostItemForm = ({ onClose, onSuccess }: PostItemFormProps) => {
         await supabase.from('listing_couriers').insert(courierInserts);
       }
 
-      toast.success('Your item has been posted successfully!');
+      toast.success('Your item has been submitted for review! It will be visible once approved by an admin.');
       onSuccess?.();
       onClose();
     } catch (error) {
@@ -245,17 +248,30 @@ export const PostItemForm = ({ onClose, onSuccess }: PostItemFormProps) => {
                 />
               </div>
 
-              {/* Price in PHP */}
-              <div>
-                <Label>Price (PHP) *</Label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">₱</span>
+              {/* Price & Quantity */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Price (PHP) *</Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">₱</span>
+                    <Input
+                      type="number"
+                      placeholder="0"
+                      value={formData.price}
+                      onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                      className="pl-8"
+                      required
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label>Quantity *</Label>
                   <Input
                     type="number"
-                    placeholder="0"
-                    value={formData.price}
-                    onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                    className="pl-8"
+                    placeholder="1"
+                    min="1"
+                    value={formData.quantity}
+                    onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
                     required
                   />
                 </div>
