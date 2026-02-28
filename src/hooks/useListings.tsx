@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { ListingItem } from '@/types/marketplace';
-import { mockListings } from '@/data/mockData';
 
 export interface Profile {
   display_name: string | null;
@@ -10,7 +9,7 @@ export interface Profile {
 }
 
 export const useListings = () => {
-  const [listings, setListings] = useState<ListingItem[]>(mockListings);
+  const [listings, setListings] = useState<ListingItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchListings = async () => {
@@ -56,8 +55,9 @@ export const useListings = () => {
           };
         });
 
-        // Combine database listings with mock data
-        setListings([...transformedListings, ...mockListings]);
+        setListings(transformedListings);
+      } else {
+        setListings([]);
       }
     } catch (error) {
       console.error('Error in fetchListings:', error);
