@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import bentaBarkadaLogo from '@/assets/bentabarkada-logo.png';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { lovable } from '@/integrations/lovable/index';
@@ -449,7 +450,7 @@ const Auth = () => {
     <div className="min-h-screen bg-background flex items-center justify-center px-4">
       <div className="w-full max-w-md space-y-8">
         <div className="text-center">
-          <h1 className="text-3xl font-bold text-gradient tracking-tight">bentaBarkada</h1>
+          <img src={bentaBarkadaLogo} alt="BentaBarkada" className="h-24 mx-auto mb-2" />
           <p className="mt-2 text-muted-foreground">
             {mode === 'login' && 'Sign in to your account'}
             {mode === 'signup' && 'Create your account'}
