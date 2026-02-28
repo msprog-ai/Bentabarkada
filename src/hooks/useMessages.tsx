@@ -87,11 +87,11 @@ export const useMessages = (listingId?: string, sellerId?: string) => {
       // Fetch partner profiles
       const partnerIds = Array.from(convMap.keys());
       const { data: profiles } = await supabase
-        .from('profiles')
+        .from('profiles_public' as any)
         .select('user_id, display_name, avatar_url')
-        .in('user_id', partnerIds);
+        .in('user_id', partnerIds) as { data: { user_id: string; display_name: string; avatar_url: string }[] | null };
 
-      const profileMap = new Map(profiles?.map(p => [p.user_id, p]) || []);
+      const profileMap = new Map(profiles?.map((p: any) => [p.user_id, p]) || []);
 
       const convList: Conversation[] = Array.from(convMap.entries()).map(([partnerId, msgs]) => {
         const profile = profileMap.get(partnerId);

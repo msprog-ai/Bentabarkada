@@ -29,11 +29,11 @@ export const useListings = () => {
         // Fetch profiles for all listing users
         const userIds = [...new Set(dbListings.map(l => l.user_id))];
         const { data: profiles } = await supabase
-          .from('profiles')
+          .from('profiles_public' as any)
           .select('user_id, display_name, avatar_url, rating')
-          .in('user_id', userIds);
+          .in('user_id', userIds) as { data: { user_id: string; display_name: string; avatar_url: string; rating: number }[] | null };
 
-        const profileMap = new Map(profiles?.map(p => [p.user_id, p]) || []);
+        const profileMap = new Map(profiles?.map((p: any) => [p.user_id, p]) || []);
 
         const transformedListings: ListingItem[] = dbListings.map((listing) => {
           const profile = profileMap.get(listing.user_id) as Profile | undefined;
