@@ -61,7 +61,7 @@ const Index = () => {
 
       <HeroSection />
 
-      <main className="container mx-auto px-4 pb-16 border-2">
+      <main className="container mx-auto px-3 sm:px-4 pb-16">
         {/* Categories */}
         <div className="mb-8">
           <CategoryFilter
@@ -86,7 +86,7 @@ const Index = () => {
             <p className="text-muted-foreground">Loading listings...</p>
           </div> :
         filteredListings.length > 0 ?
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
             {filteredListings.map((item, index) =>
           <div key={item.id} style={{ animationDelay: `${index * 0.05}s` }}>
                 <ListingCard item={item} onClick={setSelectedItem} />
