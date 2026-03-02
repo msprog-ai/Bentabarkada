@@ -127,4 +127,13 @@
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
+
+  @keyframes bounce-once {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.4); }
+  }
+
+  .animate-bounce-once {
+    animation: bounce-once 0.4s ease-in-out;
+  }
 }
