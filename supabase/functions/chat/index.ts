@@ -6,7 +6,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// Simple in-memory rate limiter
 const rateLimits = new Map<string, { count: number; resetAt: number }>();
 function checkRateLimit(userId: string, maxRequests = 20, windowMs = 60000): boolean {
   const now = Date.now();
@@ -26,7 +25,6 @@ serve(async (req) => {
   }
 
   try {
-    // Authenticate the user
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -50,7 +48,7 @@ serve(async (req) => {
     }
 
     if (!checkRateLimit(user.id)) {
-      return new Response(JSON.stringify({ error: "Rate limit exceeded. Please try again later." }), {
+      return new Response(JSON.stringify({ error: "Rate limit exceeded" }), {
         status: 429,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -58,24 +56,63 @@ serve(async (req) => {
 
     const { messages } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
+    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+
+    // Extract the latest user message to search for relevant listings
+    const lastUserMessage = [...messages].reverse().find((m: any) => m.role === "user")?.content || "";
+
+    // Search for relevant listings from the database
+    const serviceClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+
+    // Fetch approved listings that might match the user's query
+    const { data: allListings } = await serviceClient
+      .from("listings")
+      .select("id, title, description, price, category, condition, location, quantity, image_url")
+      .eq("approval_status", "approved")
+      .order("created_at", { ascending: false })
+      .limit(100);
+
+    // Simple keyword matching to find relevant listings
+    const searchTerms = lastUserMessage.toLowerCase().split(/\s+/).filter((w: string) => w.length > 2);
+    const relevantListings = (allListings || []).filter((listing: any) => {
+      const text = `${listing.title} ${listing.description} ${listing.category}`.toLowerCase();
+      return searchTerms.some((term: string) => text.includes(term));
+    }).slice(0, 10);
+
+    // Build context with listings data
+    let listingsContext = "";
+    if (relevantListings.length > 0) {
+      listingsContext = "\n\nHere are relevant items currently available on BentaBarkada that match the user's interest:\n";
+      relevantListings.forEach((l: any, i: number) => {
+        listingsContext += `${i + 1}. **${l.title}** - ₱${Number(l.price).toLocaleString()} | Category: ${l.category} | Condition: ${l.condition} | Location: ${l.location} | Qty: ${l.quantity}\n   Description: ${l.description.substring(0, 120)}${l.description.length > 120 ? '...' : ''}\n`;
+      });
+      listingsContext += "\nPresent these items to the user in a friendly, helpful way. Use the exact titles and prices. If no items match, let them know and suggest browsing categories.";
+    } else if (allListings && allListings.length > 0) {
+      // Show some popular/recent listings if no direct match
+      const recentListings = allListings.slice(0, 5);
+      listingsContext = "\n\nNo exact matches found for the user's query. Here are some recent listings they might be interested in:\n";
+      recentListings.forEach((l: any, i: number) => {
+        listingsContext += `${i + 1}. **${l.title}** - ₱${Number(l.price).toLocaleString()} | Category: ${l.category} | Condition: ${l.condition}\n`;
+      });
+      listingsContext += "\nLet the user know you couldn't find an exact match, but suggest these recent items or recommend they browse specific categories.";
     }
 
-    const systemPrompt = `You are a helpful marketplace assistant for BentaBarkada, a Philippine marketplace platform where users can buy and sell items. 
+    const systemPrompt = `You are a helpful marketplace assistant for BentaBarkada, a Philippine marketplace platform where users can buy and sell items.
 
 Your role is to:
-- Help users find items they're looking for
+- Help users find items they're looking for by showing available listings
 - Provide tips on selling items effectively (pricing, descriptions, photos)
 - Answer questions about how the marketplace works
 - Give advice on safe buying and selling practices
-- Help with common marketplace questions
 - Provide information about payment methods (GCash, Maya, QR PH, COD)
 - Assist with delivery and shipping inquiries
 
+When showing product suggestions, format them clearly with title, price, and key details.
 Always respond in English. Be friendly, concise, and helpful.
-Keep responses focused on marketplace-related topics. If asked about something unrelated to marketplace activities, politely redirect the conversation.`;
+Keep responses focused on marketplace-related topics.${listingsContext}`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -101,7 +138,7 @@ Keep responses focused on marketplace-related topics. If asked about something u
         });
       }
       if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "Payment required, please add funds to your Lovable AI workspace." }), {
+        return new Response(JSON.stringify({ error: "Payment required" }), {
           status: 402,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
