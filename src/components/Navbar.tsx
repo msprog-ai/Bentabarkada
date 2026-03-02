@@ -10,8 +10,8 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+  DropdownMenuTrigger } from
+'@/components/ui/dropdown-menu';
 
 interface NavbarProps {
   searchQuery: string;
@@ -29,15 +29,15 @@ export const Navbar = ({ searchQuery, onSearchChange, onPostClick }: NavbarProps
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16 gap-4">
           {/* Logo */}
-          <div 
+          <div
             className="flex items-center gap-2 flex-shrink-0 cursor-pointer"
-            onClick={() => navigate('/')}
-          >
-            <img 
-              src={bentabarkadaLogo} 
-              alt="BentaBarkada" 
-              className="h-14 w-auto object-contain"
-            />
+            onClick={() => navigate('/')}>
+
+            <img
+
+              alt="BentaBarkada"
+              className="h-14 w-auto object-cover" src="/lovable-uploads/1889f6cb-6489-4f6c-a3d6-892f55365ff0.png" />
+
           </div>
 
           {/* Search */}
@@ -49,8 +49,8 @@ export const Navbar = ({ searchQuery, onSearchChange, onPostClick }: NavbarProps
                 placeholder="Search items..."
                 value={searchQuery}
                 onChange={(e) => onSearchChange(e.target.value)}
-                className="pl-10 bg-secondary border-0"
-              />
+                className="pl-10 bg-secondary border-0" />
+
             </div>
           </div>
 
@@ -63,8 +63,8 @@ export const Navbar = ({ searchQuery, onSearchChange, onPostClick }: NavbarProps
 
             <CartSheet />
 
-            {user ? (
-              <DropdownMenu>
+            {user ?
+            <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="icon">
                     <User className="w-4 h-4" />
@@ -82,23 +82,23 @@ export const Navbar = ({ searchQuery, onSearchChange, onPostClick }: NavbarProps
                     <Store className="w-4 h-4 mr-2" />
                     Seller Dashboard
                   </DropdownMenuItem>
-                  {isAdmin && (
-                    <DropdownMenuItem onClick={() => navigate('/admin')}>
+                  {isAdmin &&
+                <DropdownMenuItem onClick={() => navigate('/admin')}>
                       <ShieldCheck className="w-4 h-4 mr-2" />
                       Admin Dashboard
                     </DropdownMenuItem>
-                  )}
+                }
                   <DropdownMenuItem onClick={signOut}>
                     <LogOut className="w-4 h-4 mr-2" />
                     Sign Out
                   </DropdownMenuItem>
                 </DropdownMenuContent>
-              </DropdownMenu>
-            ) : (
-              <Button variant="outline" onClick={() => navigate('/auth')}>
+              </DropdownMenu> :
+
+            <Button variant="outline" onClick={() => navigate('/auth')}>
                 Sign In
               </Button>
-            )}
+            }
           </div>
         </div>
 
@@ -111,11 +111,11 @@ export const Navbar = ({ searchQuery, onSearchChange, onPostClick }: NavbarProps
               placeholder="Search items..."
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
-              className="pl-10 bg-secondary border-0"
-            />
+              className="pl-10 bg-secondary border-0" />
+
           </div>
         </div>
       </div>
-    </nav>
-  );
+    </nav>);
+
 };
