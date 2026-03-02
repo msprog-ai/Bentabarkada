@@ -61,8 +61,14 @@ export const ListingDetail = ({ item, onClose, sellerId }: ListingDetailProps) =
       return;
     }
     setAddingToCart(true);
-    await addToCart(item.id);
+    const result = await addToCart(item.id);
     setAddingToCart(false);
+    if (result?.success) {
+      toast.success(`${item.title} added to cart!`, {
+        description: `₱${item.price.toLocaleString()} • Tap the cart icon to view`,
+        duration: 4000,
+      });
+    }
   };
 
   return (

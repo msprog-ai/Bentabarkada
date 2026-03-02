@@ -29,10 +29,10 @@ export const CartSheet = () => {
   return (
     <Sheet>
       <SheetTrigger asChild>
-        <Button variant="outline" size="icon" className="relative">
-          <ShoppingCart className="w-4 h-4" />
+        <Button variant="outline" size="icon" className="relative group">
+          <ShoppingCart className="w-4 h-4 group-hover:scale-110 transition-transform" />
           {cartCount > 0 && (
-            <span className="absolute -top-1 -right-1 w-5 h-5 bg-primary text-primary-foreground text-xs rounded-full flex items-center justify-center">
+            <span className="absolute -top-1 -right-1 w-5 h-5 bg-primary text-primary-foreground text-xs rounded-full flex items-center justify-center animate-bounce-once">
               {cartCount}
             </span>
           )}

@@ -101,9 +101,8 @@ export const useCart = () => {
       return { error };
     }
 
-    toast.success('Added to cart!');
-    fetchCart();
-    return { error: null };
+    await fetchCart();
+    return { error: null, success: true };
   };
 
   const removeFromCart = async (cartItemId: string) => {
