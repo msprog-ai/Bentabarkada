@@ -48,10 +48,16 @@ export const ListingDetail = ({ item, onClose, sellerId }: ListingDetailProps) =
     setShowMessageDialog(true);
   };
 
+  const isSoldOut = item.quantity === 0;
+
   const handleAddToCart = async () => {
     if (!user) {
       toast.error('Please sign in to add items to cart');
       navigate('/auth');
+      return;
+    }
+    if (isSoldOut) {
+      toast.error('This item is sold out');
       return;
     }
     setAddingToCart(true);
@@ -95,14 +101,20 @@ export const ListingDetail = ({ item, onClose, sellerId }: ListingDetailProps) =
                     </p>
 
                     <div className="flex items-center gap-4 mb-6 flex-wrap">
-                      <span className="px-3 py-1 rounded-full bg-secondary text-sm font-medium capitalize">
-                        {conditionLabels[item.condition]}
-                      </span>
+                      {isSoldOut ? (
+                        <span className="px-3 py-1 rounded-full bg-destructive text-destructive-foreground text-sm font-bold uppercase">
+                          Sold Out
+                        </span>
+                      ) : (
+                        <span className="px-3 py-1 rounded-full bg-secondary text-sm font-medium capitalize">
+                          {conditionLabels[item.condition]}
+                        </span>
+                      )}
                       <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                         <MapPin className="w-4 h-4" />
                         <span>{item.location}</span>
                       </div>
-                      {item.quantity && item.quantity > 1 && (
+                      {!isSoldOut && item.quantity && item.quantity > 1 && (
                         <span className="px-3 py-1 rounded-full bg-primary/10 text-primary text-sm font-medium">
                           {item.quantity} available
                         </span>
@@ -169,10 +181,10 @@ export const ListingDetail = ({ item, onClose, sellerId }: ListingDetailProps) =
                       variant="outline" 
                       className="gap-2"
                       onClick={handleAddToCart}
-                      disabled={addingToCart}
+                      disabled={addingToCart || isSoldOut}
                     >
                       <ShoppingCart className="w-5 h-5" />
-                      {addingToCart ? 'Adding...' : 'Add to Cart'}
+                      {isSoldOut ? 'Sold Out' : addingToCart ? 'Adding...' : 'Add to Cart'}
                     </Button>
                     <Button 
                       className="flex-1 hero-gradient border-0 gap-2"
