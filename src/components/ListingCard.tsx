@@ -44,18 +44,33 @@ export const ListingCard = ({ item, onClick }: ListingCardProps) => {
     fair: 'bg-muted text-muted-foreground'
   };
 
+  const isSoldOut = item.quantity === 0;
+
   return (
     <div
       onClick={() => onClick(item)}
-      className="group bg-card rounded-xl overflow-hidden card-shadow hover:card-shadow-hover transition-all duration-300 cursor-pointer animate-fade-in flex flex-col"
+      className={cn(
+        "group bg-card rounded-xl overflow-hidden card-shadow hover:card-shadow-hover transition-all duration-300 cursor-pointer animate-fade-in flex flex-col",
+        isSoldOut && "opacity-75"
+      )}
     >
       {/* Image */}
       <div className="relative aspect-square overflow-hidden">
         <img
           src={item.image}
           alt={item.title}
-          className="w-full h-full group-hover:scale-105 transition-transform duration-500 border border-solid border-primary object-scale-down rounded-lg"
+          className={cn(
+            "w-full h-full group-hover:scale-105 transition-transform duration-500 border border-solid border-primary object-scale-down rounded-lg",
+            isSoldOut && "grayscale"
+          )}
         />
+        {isSoldOut && (
+          <div className="absolute inset-0 bg-background/60 flex items-center justify-center">
+            <span className="bg-destructive text-destructive-foreground px-4 py-2 rounded-full text-sm font-bold uppercase tracking-wide">
+              Sold Out
+            </span>
+          </div>
+        )}
         <button
           onClick={handleFavoriteClick}
           className={cn(
@@ -67,14 +82,16 @@ export const ListingCard = ({ item, onClick }: ListingCardProps) => {
         >
           <Heart className={cn("w-4 h-4", isFavorite && "fill-current")} />
         </button>
-        <span
-          className={cn(
-            "absolute bottom-2 left-2 px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-medium capitalize",
-            conditionColors[item.condition]
-          )}
-        >
-          {item.condition.replace('-', ' ')}
-        </span>
+        {!isSoldOut && (
+          <span
+            className={cn(
+              "absolute bottom-2 left-2 px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-medium capitalize",
+              conditionColors[item.condition]
+            )}
+          >
+            {item.condition.replace('-', ' ')}
+          </span>
+        )}
       </div>
 
       {/* Content */}

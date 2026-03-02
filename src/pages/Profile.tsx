@@ -14,6 +14,7 @@ import { ListingCard } from '@/components/ListingCard';
 import { ListingItem } from '@/types/marketplace';
 import { formatDistanceToNow } from 'date-fns';
 import DeliveryStatusTracker from '@/components/DeliveryStatusTracker';
+import { SellerReviewForm } from '@/components/SellerReviewForm';
 
 interface ProfileData {
   display_name: string | null;
@@ -32,6 +33,7 @@ const Profile = () => {
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [myListings, setMyListings] = useState<ListingItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [reviewedOrderIds, setReviewedOrderIds] = useState<Set<string>>(new Set());
   const [editing, setEditing] = useState(false);
   const [displayName, setDisplayName] = useState('');
   const [saving, setSaving] = useState(false);
@@ -93,8 +95,19 @@ const Profile = () => {
       setLoading(false);
     };
 
+    const fetchReviewedOrders = async () => {
+      const { data } = await supabase
+        .from('seller_reviews')
+        .select('order_id')
+        .eq('reviewer_id', user.id);
+      if (data) {
+        setReviewedOrderIds(new Set(data.map(r => r.order_id)));
+      }
+    };
+
     fetchProfile();
     fetchMyListings();
+    fetchReviewedOrders();
   }, [user]);
 
   const fetchConversationMessages = async (partnerId: string) => {
@@ -422,6 +435,24 @@ const Profile = () => {
                           isBuyer={true}
                           onUpdate={refetchOrders}
                         />
+                      </div>
+                    )}
+
+                    {/* Review Form for delivered orders */}
+                    {order.buyer_id === user.id && order.status === 'delivered' && !reviewedOrderIds.has(order.id) && (
+                      <SellerReviewForm
+                        orderId={order.id}
+                        sellerId={order.seller_id}
+                        onReviewSubmitted={() => {
+                          setReviewedOrderIds(prev => new Set([...prev, order.id]));
+                          refetchOrders();
+                        }}
+                      />
+                    )}
+                    {order.buyer_id === user.id && order.status === 'delivered' && reviewedOrderIds.has(order.id) && (
+                      <div className="border-t border-border mt-4 pt-4 flex items-center gap-2 text-sm text-success">
+                        <Star className="w-4 h-4 fill-current" />
+                        <span>You reviewed this seller</span>
                       </div>
                     )}
                   </div>
