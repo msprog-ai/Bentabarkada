@@ -16,7 +16,7 @@ interface Message {
 export const ChatBot = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
-    { role: 'assistant', content: "Kumusta! Ako ang BentaBarkada assistant mo. Paano kita matutulungan? Tanungin mo ako tungkol sa pagbili, pagbenta, o paghahanap ng items!" }
+    { role: 'assistant', content: "Hi there! I'm your BentaBarkada assistant. How can I help you? Ask me about buying, selling, or finding items!" }
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
