@@ -53,7 +53,7 @@ Your role is to:
 - Provide information about payment methods (GCash, Maya, QR PH, COD)
 - Assist with delivery and shipping inquiries
 
-Be friendly, concise, and helpful. You can respond in Filipino, Taglish, or English based on how the user messages you.
+Always respond in English. Be friendly, concise, and helpful.
 Keep responses focused on marketplace-related topics. If asked about something unrelated to marketplace activities, politely redirect the conversation.`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {

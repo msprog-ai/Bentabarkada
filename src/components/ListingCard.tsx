@@ -125,8 +125,14 @@ export const ListingCard = ({ item, onClick }: ListingCardProps) => {
           />
           <span className="text-xs text-muted-foreground truncate">{item.seller.name}</span>
           <div className="flex items-center gap-0.5 ml-auto flex-shrink-0">
-            <Star className="w-3 h-3 fill-warning text-warning" />
-            <span className="text-xs font-medium">{item.seller.rating}</span>
+            {item.seller.rating > 0 ? (
+              <>
+                <Star className="w-3 h-3 fill-warning text-warning" />
+                <span className="text-xs font-medium">{item.seller.rating.toFixed(1)}</span>
+              </>
+            ) : (
+              <span className="text-xs text-muted-foreground">New seller</span>
+            )}
           </div>
         </div>
       </div>

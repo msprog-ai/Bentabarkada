@@ -9,12 +9,12 @@ export const HeroSection = () => {
       <div className="container mx-auto px-4 relative">
         <div className="text-center max-w-3xl mx-auto mb-12 animate-slide-up">
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold mb-6 leading-tight">
-            Ibenta Mo sa{' '}
+            Sell It to Your{' '}
             <span className="text-gradient">Barkada</span>
           </h1>
           <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto">
-            Ang marketplace ng Pilipinas para sa barkada. 
-            Bumili at magbenta ng mga items sa iyong community — mabilis, ligtas, at libre!
+            The Philippines' community marketplace.
+            Buy and sell items with your community — fast, safe, and free!
           </p>
         </div>
 

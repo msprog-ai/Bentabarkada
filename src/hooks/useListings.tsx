@@ -51,7 +51,7 @@ export const useListings = () => {
               id: listing.user_id,
               name: profile?.display_name || 'Anonymous',
               avatar: profile?.avatar_url || `https://i.pravatar.cc/100?u=${listing.user_id}`,
-              rating: Number(profile?.rating) || 5.0,
+              rating: profile?.rating != null ? Number(profile.rating) : 0,
             },
             createdAt: new Date(listing.created_at),
           };

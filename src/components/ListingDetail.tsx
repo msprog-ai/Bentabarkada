@@ -125,8 +125,14 @@ export const ListingDetail = ({ item, onClose, sellerId }: ListingDetailProps) =
                         <div className="flex-1">
                           <p className="font-semibold">{item.seller.name}</p>
                           <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                            <Star className="w-4 h-4 fill-warning text-warning" />
-                            <span>{item.seller.rating} rating</span>
+                            {item.seller.rating > 0 ? (
+                              <>
+                                <Star className="w-4 h-4 fill-warning text-warning" />
+                                <span>{item.seller.rating.toFixed(1)} rating</span>
+                              </>
+                            ) : (
+                              <span>New seller</span>
+                            )}
                           </div>
                         </div>
                         <div className="flex items-center gap-1 text-success text-sm">
@@ -147,7 +153,16 @@ export const ListingDetail = ({ item, onClose, sellerId }: ListingDetailProps) =
                     >
                       <Heart className={cn("w-5 h-5", isFavorite && "fill-current")} />
                     </Button>
-                    <Button variant="outline" size="icon">
+                    <Button variant="outline" size="icon" onClick={async () => {
+                      const shareUrl = `${window.location.origin}/?item=${item.id}`;
+                      const shareData = { title: item.title, text: `Check out ${item.title} for ₱${item.price.toLocaleString()} on BentaBarkada!`, url: shareUrl };
+                      if (navigator.share) {
+                        try { await navigator.share(shareData); } catch {}
+                      } else {
+                        await navigator.clipboard.writeText(shareUrl);
+                        toast.success('Link copied to clipboard!');
+                      }
+                    }}>
                       <Share2 className="w-5 h-5" />
                     </Button>
                     <Button 
