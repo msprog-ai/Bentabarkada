@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 
 type DeliveryStatus = 'pending' | 'pickup_scheduled' | 'picked_up' | 'in_transit' | 'delivered';
@@ -61,6 +62,7 @@ const DeliveryStatusTracker = ({
   isBuyer = false,
   onUpdate,
 }: DeliveryStatusTrackerProps) => {
+  const { user } = useAuth();
   const [uploading, setUploading] = useState(false);
   const [showRiderForm, setShowRiderForm] = useState(false);
   const [riderInfo, setRiderInfo] = useState({
@@ -73,14 +75,37 @@ const DeliveryStatusTracker = ({
 
   const currentStepIndex = statusSteps.findIndex((s) => s.id === deliveryStatus);
 
+  // Valid status transitions
+  const validTransitions: Record<DeliveryStatus, DeliveryStatus[]> = {
+    pending: ['pickup_scheduled'],
+    pickup_scheduled: ['picked_up'],
+    picked_up: ['in_transit'],
+    in_transit: ['delivered'],
+    delivered: [],
+  };
+
+  const validCheckpoints = DELIVERY_CHECKPOINTS.map(cp => cp.value);
+
   const updateDeliveryStatus = async (newStatus: DeliveryStatus, additionalData?: Record<string, any>) => {
+    if (!isSeller || !user) {
+      toast.error('Only sellers can update delivery status');
+      return;
+    }
+
+    // Validate status transition
+    if (!validTransitions[deliveryStatus]?.includes(newStatus)) {
+      toast.error(`Invalid status transition from ${deliveryStatus} to ${newStatus}`);
+      return;
+    }
+
     const { error } = await supabase
       .from('orders')
       .update({ 
         delivery_status: newStatus,
         ...additionalData
       })
-      .eq('id', orderId);
+      .eq('id', orderId)
+      .eq('seller_id', user.id);
 
     if (error) {
       toast.error('Failed to update delivery status');
@@ -132,10 +157,21 @@ const DeliveryStatusTracker = ({
   };
 
   const handleCheckpointUpdate = async (checkpoint: string) => {
+    if (!isSeller || !user) {
+      toast.error('Only sellers can update checkpoints');
+      return;
+    }
+
+    if (!validCheckpoints.includes(checkpoint)) {
+      toast.error('Invalid checkpoint value');
+      return;
+    }
+
     const { error } = await supabase
       .from('orders')
       .update({ delivery_checkpoint: checkpoint })
-      .eq('id', orderId);
+      .eq('id', orderId)
+      .eq('seller_id', user.id);
 
     if (error) {
       toast.error('Failed to update checkpoint');
