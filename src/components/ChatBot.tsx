@@ -23,9 +23,12 @@ export const ChatBot = () => {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
+    // Scroll to bottom when messages change
+    setTimeout(() => {
+      if (scrollRef.current) {
+        scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      }
+    }, 50);
   }, [messages]);
 
   const sendMessage = async () => {
@@ -149,8 +152,8 @@ export const ChatBot = () => {
             </button>
           </div>
 
-          <ScrollArea className="flex-1 p-4" ref={scrollRef}>
-            <div className="space-y-4">
+          <ScrollArea className="flex-1 p-4">
+            <div className="space-y-4" ref={scrollRef}>
               {messages.map((message, index) => (
                 <div
                   key={index}
