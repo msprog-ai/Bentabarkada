@@ -459,7 +459,15 @@ const Auth = () => {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center px-4">
       <div className="w-full max-w-md space-y-8">
-        <div className="text-center">
+        <div>
+          <button
+            onClick={() => navigate('/')}
+            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to Marketplace
+          </button>
+          <div className="text-center">
           <img src={bentaBarkadaLogo} alt="BentaBarkada" className="h-32 mx-auto mb-2" />
           <p className="mt-2 text-muted-foreground">
             {mode === 'login' && 'Sign in to your account'}
@@ -469,8 +477,8 @@ const Auth = () => {
             {mode === 'forgot-password' && 'Reset your password'}
             {mode === 'reset-sent' && 'Password reset email sent'}
           </p>
+          </div>
         </div>
-
         <div className="bg-card p-8 rounded-2xl card-shadow">
           {renderContent()}
         </div>
