@@ -11,7 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { ShieldCheck, Package, ShoppingBag, Users, UserCheck, Eye, Check, X, Loader2 } from 'lucide-react';
+import { ShieldCheck, Package, ShoppingBag, Users, UserCheck, Eye, Check, X, Loader2, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 
 const AdminDashboard = () => {
@@ -163,6 +163,13 @@ const AdminDashboard = () => {
       <Navbar searchQuery={searchQuery} onSearchChange={setSearchQuery} onPostClick={() => {}} />
 
       <div className="container mx-auto px-4 py-6">
+        <button
+          onClick={() => navigate('/')}
+          className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back to Marketplace
+        </button>
         <div className="flex items-center gap-3 mb-6">
           <ShieldCheck className="w-7 h-7 text-primary" />
           <h1 className="text-2xl font-bold">Admin Dashboard</h1>
