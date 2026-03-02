@@ -16,7 +16,7 @@ interface Message {
 export const ChatBot = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
-    { role: 'assistant', content: "Hi there! I'm your BentaBarkada assistant. How can I help you? Ask me about buying, selling, or finding items!" }
+    { role: 'assistant', content: "Hi there! 👋 I'm your BentaBarkada assistant. Ask me to find items — like \"show me pet supplies\" or \"I need a laptop\" — and I'll search our listings for you!" }
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -53,6 +53,7 @@ export const ChatBot = () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         toast.error('Please sign in to use the chat assistant.');
+        setMessages(prev => prev.filter(m => m !== userMessage));
         setIsLoading(false);
         return;
       }
@@ -63,21 +64,19 @@ export const ChatBot = () => {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ messages: [...messages, userMessage] }),
+        body: JSON.stringify({ messages: [...messages, userMessage].map(m => ({ role: m.role, content: m.content })) }),
       });
 
       if (!response.ok) {
         if (response.status === 429) {
           toast.error('Rate limit exceeded. Please try again later.');
-          setIsLoading(false);
-          return;
+        } else if (response.status === 402) {
+          toast.error('AI credits exhausted. Please try again later.');
+        } else {
+          toast.error('Failed to get response. Please try again.');
         }
-        if (response.status === 402) {
-          toast.error('AI credits exhausted. Please add credits to continue.');
-          setIsLoading(false);
-          return;
-        }
-        throw new Error('Failed to get response');
+        setIsLoading(false);
+        return;
       }
 
       const reader = response.body?.getReader();
@@ -89,7 +88,7 @@ export const ChatBot = () => {
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        
+
         buffer += decoder.decode(value, { stream: true });
 
         let newlineIndex: number;
@@ -125,7 +124,6 @@ export const ChatBot = () => {
 
   return (
     <>
-      {/* Chat Button */}
       <button
         onClick={() => setIsOpen(true)}
         className={cn(
@@ -136,10 +134,8 @@ export const ChatBot = () => {
         <MessageCircle className="w-6 h-6 text-white" />
       </button>
 
-      {/* Chat Window */}
       {isOpen && (
         <div className="fixed bottom-6 right-6 z-50 w-96 max-w-[calc(100vw-3rem)] h-[500px] bg-card rounded-2xl card-shadow flex flex-col overflow-hidden animate-scale-in">
-          {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-border hero-gradient">
             <div className="flex items-center gap-2">
               <Bot className="w-5 h-5 text-white" />
@@ -153,7 +149,6 @@ export const ChatBot = () => {
             </button>
           </div>
 
-          {/* Messages */}
           <ScrollArea className="flex-1 p-4" ref={scrollRef}>
             <div className="space-y-4">
               {messages.map((message, index) => (
@@ -178,7 +173,7 @@ export const ChatBot = () => {
                     )}
                   >
                     {message.role === 'assistant' ? (
-                      <div className="prose prose-sm dark:prose-invert">
+                      <div className="prose prose-sm dark:prose-invert max-w-none">
                         <ReactMarkdown>{message.content}</ReactMarkdown>
                       </div>
                     ) : (
@@ -209,7 +204,6 @@ export const ChatBot = () => {
             </div>
           </ScrollArea>
 
-          {/* Input */}
           <div className="p-4 border-t border-border">
             <form
               onSubmit={(e) => {
@@ -221,7 +215,7 @@ export const ChatBot = () => {
               <Input
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder="Ask me anything..."
+                placeholder="Ask me to find items..."
                 disabled={isLoading}
               />
               <Button type="submit" size="icon" disabled={isLoading || !input.trim()}>
