@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useSellerVerification } from '@/hooks/useSellerVerification';
@@ -10,6 +9,7 @@ import { Cart } from '@/components/Cart';
 import { PostItemForm } from '@/components/PostItemForm';
 import { SellerVerificationForm } from '@/components/SellerVerificationForm';
 import { toast } from 'sonner';
+import bentabarkadaLogo from '@/assets/bentabarkada-logo.png';
 
 export const Header = () => {
   const { user, signIn, signOut } = useAuth();
@@ -72,8 +72,7 @@ export const Header = () => {
         <div className="container flex h-16 items-center space-x-4 sm:justify-between sm:space-x-0">
           <div className="flex gap-6 md:gap-10">
             <a href="/" className="flex items-center space-x-2">
-              <ShoppingCart className="h-6 w-6" />
-              <span className="inline-block font-bold">BentaBarkada</span>
+              <img src={bentabarkadaLogo} alt="BentaBarkada" className="h-10" />
             </a>
           </div>
           
