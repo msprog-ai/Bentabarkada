@@ -362,6 +362,9 @@ export type Database = {
           id: string
           notes: string | null
           payment_method: Database["public"]["Enums"]["payment_method"]
+          payment_proof_url: string | null
+          payment_reference: string | null
+          payment_status: string
           pickup_photo_url: string | null
           proof_of_delivery_url: string | null
           rider_name: string | null
@@ -387,6 +390,9 @@ export type Database = {
           id?: string
           notes?: string | null
           payment_method: Database["public"]["Enums"]["payment_method"]
+          payment_proof_url?: string | null
+          payment_reference?: string | null
+          payment_status?: string
           pickup_photo_url?: string | null
           proof_of_delivery_url?: string | null
           rider_name?: string | null
@@ -412,6 +418,9 @@ export type Database = {
           id?: string
           notes?: string | null
           payment_method?: Database["public"]["Enums"]["payment_method"]
+          payment_proof_url?: string | null
+          payment_reference?: string | null
+          payment_status?: string
           pickup_photo_url?: string | null
           proof_of_delivery_url?: string | null
           rider_name?: string | null
@@ -452,6 +461,7 @@ export type Database = {
           rating: number | null
           updated_at: string
           user_id: string
+          user_type: string
         }
         Insert: {
           avatar_url?: string | null
@@ -463,6 +473,7 @@ export type Database = {
           rating?: number | null
           updated_at?: string
           user_id: string
+          user_type?: string
         }
         Update: {
           avatar_url?: string | null
@@ -474,6 +485,7 @@ export type Database = {
           rating?: number | null
           updated_at?: string
           user_id?: string
+          user_type?: string
         }
         Relationships: []
       }
@@ -530,6 +542,8 @@ export type Database = {
           reviewed_at: string | null
           reviewed_by: string | null
           selfie_url: string | null
+          shop_name: string | null
+          social_link: string | null
           status: string
           updated_at: string
           user_id: string
@@ -548,6 +562,8 @@ export type Database = {
           reviewed_at?: string | null
           reviewed_by?: string | null
           selfie_url?: string | null
+          shop_name?: string | null
+          social_link?: string | null
           status?: string
           updated_at?: string
           user_id: string
@@ -566,6 +582,8 @@ export type Database = {
           reviewed_at?: string | null
           reviewed_by?: string | null
           selfie_url?: string | null
+          shop_name?: string | null
+          social_link?: string | null
           status?: string
           updated_at?: string
           user_id?: string
@@ -673,7 +691,7 @@ export type Database = {
         | "shipped"
         | "delivered"
         | "cancelled"
-      payment_method: "gcash" | "maya" | "qr_ph" | "cod"
+      payment_method: "gcash" | "maya" | "qr_ph" | "cod" | "bank_transfer"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -809,7 +827,7 @@ export const Constants = {
         "delivered",
         "cancelled",
       ],
-      payment_method: ["gcash", "maya", "qr_ph", "cod"],
+      payment_method: ["gcash", "maya", "qr_ph", "cod", "bank_transfer"],
     },
   },
 } as const
