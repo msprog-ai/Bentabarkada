@@ -10,9 +10,8 @@ import { categories } from '@/data/mockData';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { db, storage } from '@/integrations/firebase/client';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, getDocs, query, where } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { supabase } from '@/integrations/supabase/client';
 
 interface PostItemFormProps {
   onClose: () => void;
@@ -37,17 +36,19 @@ export const PostItemForm = ({ onClose, onSuccess }: PostItemFormProps) => {
   const [couriers, setCouriers] = useState<any[]>([]);
   const [selectedCouriers, setSelectedCouriers] = useState<string[]>([]);
   const [loadingCouriers, setLoadingCouriers] = useState(true);
-  // Fetch available couriers from Supabase
+
+  // Fetch available couriers from Firestore
   useEffect(() => {
     const fetchCouriers = async () => {
       setLoadingCouriers(true);
-      const { data, error } = await supabase
-        .from('shipping_couriers')
-        .select('*')
-        .eq('is_active', true);
-      if (!error && data) {
-        setCouriers(data);
-      } else {
+      try {
+        const couriersCollection = collection(db, 'shipping_couriers');
+        const q = query(couriersCollection, where('is_active', '==', true));
+        const querySnapshot = await getDocs(q);
+        const couriersData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setCouriers(couriersData);
+      } catch (error) {
+        console.error("Error fetching couriers: ", error);
         setCouriers([]);
       }
       setLoadingCouriers(false);
@@ -116,7 +117,7 @@ export const PostItemForm = ({ onClose, onSuccess }: PostItemFormProps) => {
       });
       // Insert into listing_couriers for each selected courier
       for (const courierId of selectedCouriers) {
-        await supabase.from('listing_couriers').insert({
+        await addDoc(collection(db, 'listing_couriers'), {
           listing_id: listingRef.id,
           courier_id: courierId
         });

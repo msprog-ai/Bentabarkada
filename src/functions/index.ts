@@ -165,6 +165,24 @@ export const adminAction = onCall({ maxInstances: 5 }, async (request) => {
                 await createAuditLog("verification", verification_id, { user_id });
                 return { success: true, message: "Seller approved." };
             }
+            case "reject_verification": {
+                const { verification_id, rejection_reason } = payload;
+                if (!verification_id) throw new HttpsError("invalid-argument", "verification_id is required.");
+                if (!rejection_reason) throw new HttpsError("invalid-argument", "rejection_reason is required for rejections.");
+
+                const verificationRef = db.collection("seller_verifications").doc(verification_id);
+                
+                await verificationRef.update({ 
+                    status: "rejected",
+                    rejection_reason: rejection_reason
+                });
+
+                const verificationDoc = await verificationRef.get();
+                const user_id = verificationDoc.data()?.user_id;
+
+                await createAuditLog("verification", verification_id, { user_id, reason: rejection_reason });
+                return { success: true, message: "Seller verification rejected." };
+            }
             // ... other admin actions ...
             default:
                 throw new HttpsError("invalid-argument", `Invalid action specified: ${action}`);
