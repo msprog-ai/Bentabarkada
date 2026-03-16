@@ -58,10 +58,14 @@ const Auth = () => {
   const handleIdFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('File must be less than 5MB');
+    
+    const validation = validateFile(file, { allowPdf: true });
+    if (!validation.valid) {
+      toast.error(validation.error);
+      e.target.value = '';
       return;
     }
+    
     setIdFile(file);
     const reader = new FileReader();
     reader.onload = () => setIdPreview(reader.result as string);
@@ -69,8 +73,8 @@ const Auth = () => {
   };
 
   const uploadIdFile = async (userId: string, file: File): Promise<string> => {
-    const ext = file.name.split('.').pop();
-    const path = `${userId}/gov-id.${ext}`;
+    const secureName = generateSecureFilename(file.name);
+    const path = `${userId}/${secureName}`;
     const { error } = await supabase.storage
       .from('verification-documents')
       .upload(path, file, { upsert: true });
