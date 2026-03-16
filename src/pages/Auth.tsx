@@ -255,24 +255,52 @@ const Auth = () => {
     }
   };
 
-  const PasswordInput = ({ value, onChange, placeholder = '••••••••' }: { value: string; onChange: (v: string) => void; placeholder?: string }) => (
-    <div className="relative">
-      <Input
-        type={showPassword ? 'text' : 'password'}
-        placeholder={placeholder}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        required
-      />
-      <button
-        type="button"
-        onClick={() => setShowPassword(!showPassword)}
-        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-      >
-        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-      </button>
-    </div>
-  );
+  const PasswordInput = ({ value, onChange, placeholder = '••••••••', showStrength = false }: { value: string; onChange: (v: string) => void; placeholder?: string; showStrength?: boolean }) => {
+    const strength = showStrength && value ? checkPasswordStrength(value) : null;
+    return (
+      <div className="space-y-2">
+        <div className="relative">
+          <Input
+            type={showPassword ? 'text' : 'password'}
+            placeholder={placeholder}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            required
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+          >
+            {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+          </button>
+        </div>
+        {strength && (
+          <div className="space-y-1">
+            <div className="flex gap-1">
+              {[0, 1, 2, 3].map((i) => (
+                <div
+                  key={i}
+                  className={`h-1.5 flex-1 rounded-full transition-colors ${
+                    i < strength.score ? strength.color : 'bg-muted'
+                  }`}
+                />
+              ))}
+            </div>
+            <div className="flex items-center gap-1">
+              <Shield className="w-3 h-3 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground">{strength.label}</span>
+            </div>
+            {strength.suggestions.length > 0 && (
+              <ul className="text-xs text-muted-foreground space-y-0.5">
+                {strength.suggestions.map((s, i) => <li key={i}>• {s}</li>)}
+              </ul>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const renderContent = () => {
     switch (mode) {
