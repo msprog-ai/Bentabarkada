@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { ShieldCheck, Package, ShoppingBag, Users, UserCheck, Eye, Check, X, Loader2, ArrowLeft, CreditCard, Store, ShoppingCart, Filter } from 'lucide-react';
+import { ShieldCheck, Package, ShoppingBag, Users, UserCheck, Eye, Check, X, Loader2, ArrowLeft, CreditCard, Store, ShoppingCart, Filter, ScrollText } from 'lucide-react';
 import { toast } from 'sonner';
 
 const AdminDashboard = () => {
