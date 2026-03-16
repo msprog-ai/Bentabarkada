@@ -9,11 +9,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { z } from 'zod';
-import { Loader2, Mail, ArrowLeft, ShoppingBag, Store, Upload, Eye, EyeOff } from 'lucide-react';
+import { Loader2, Mail, ArrowLeft, ShoppingBag, Store, Upload, Eye, EyeOff, Shield } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { validateFile, generateSecureFilename, checkPasswordStrength, sanitizeInput, clientRateLimit } from '@/lib/security';
 
 const emailSchema = z.string().email('Please enter a valid email address');
-const passwordSchema = z.string().min(6, 'Password must be at least 6 characters');
+const passwordSchema = z.string().min(8, 'Password must be at least 8 characters');
 const phoneSchema = z.string().regex(/^(\+63|0)?9\d{9}$/, 'Please enter a valid Philippine phone number');
 
 type AuthMode = 'login' | 'signup-select' | 'signup-buyer' | 'signup-seller' | 'forgot-password' | 'reset-sent';
