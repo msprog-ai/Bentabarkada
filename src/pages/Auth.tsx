@@ -84,6 +84,13 @@ const Auth = () => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Client-side rate limiting
+    if (!clientRateLimit(`login_${email}`, 5, 60000)) {
+      toast.error('Too many login attempts. Please wait a minute before trying again.');
+      return;
+    }
+    
     setLoading(true);
     try {
       emailSchema.parse(email);
