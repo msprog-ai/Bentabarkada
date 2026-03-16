@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Package, ArrowLeft, Clock, CheckCircle, Truck, PackageCheck, XCircle, User, MapPin, Phone, CreditCard, Bike, Gavel } from 'lucide-react';
+import { Package, ArrowLeft, Clock, CheckCircle, Truck, PackageCheck, XCircle, User, MapPin, Phone, CreditCard, Bike, Gavel, AlertCircle, ImageIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -268,6 +268,29 @@ const SellerDashboard = () => {
                               <CreditCard className="w-4 h-4 text-muted-foreground" />
                               <span className="font-medium uppercase">{order.payment_method.replace('_', ' ')}</span>
                             </div>
+                            {order.payment_status && (
+                              <div className="mt-2">
+                                <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
+                                  order.payment_status === 'confirmed' ? 'bg-green-100 text-green-700' :
+                                  order.payment_status === 'awaiting_review' ? 'bg-orange-100 text-orange-700' :
+                                  order.payment_status === 'rejected' ? 'bg-red-100 text-red-700' :
+                                  'bg-yellow-100 text-yellow-700'
+                                }`}>
+                                  {order.payment_status === 'awaiting_review' && <AlertCircle className="w-3 h-3" />}
+                                  {order.payment_status === 'confirmed' && <CheckCircle className="w-3 h-3" />}
+                                  Payment: {order.payment_status?.replace('_', ' ')}
+                                </span>
+                              </div>
+                            )}
+                            {order.payment_proof_url && (
+                              <div className="mt-2">
+                                <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1"><ImageIcon className="w-3 h-3" /> Payment Proof</p>
+                                <img src={order.payment_proof_url} alt="Payment proof" className="w-full max-h-32 object-contain rounded border" />
+                              </div>
+                            )}
+                            {order.payment_reference && (
+                              <p className="text-xs text-muted-foreground mt-1">Ref: {order.payment_reference}</p>
+                            )}
                           </div>
 
                           {order.notes && (
