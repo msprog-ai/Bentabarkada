@@ -31,7 +31,7 @@ export interface Order {
   seller_id: string;
   address_id?: string;
   status: 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
-  payment_method: 'gcash' | 'maya' | 'qr_ph' | 'cod';
+  payment_method: 'gcash' | 'maya' | 'qr_ph' | 'cod' | 'bank_transfer';
   subtotal: number;
   delivery_fee: number;
   total: number;
@@ -49,6 +49,9 @@ export interface Order {
   delivery_provider?: string;
   rider_tracking_link?: string;
   delivery_checkpoint?: string;
+  payment_proof_url?: string;
+  payment_reference?: string;
+  payment_status?: 'pending' | 'awaiting_review' | 'confirmed' | 'rejected';
 }
 
 export interface OrderItem {
@@ -71,62 +74,28 @@ export const useOrders = () => {
   const [loading, setLoading] = useState(true);
 
   const fetchDeliveryZones = useCallback(async () => {
-    const { data, error } = await supabase
-      .from('delivery_zones')
-      .select('*');
-    
-    if (error) {
-      console.error('Error fetching delivery zones:', error);
-      return;
-    }
-    
-    setDeliveryZones((data || []).map(zone => ({
-      ...zone,
-      base_fee: Number(zone.base_fee)
-    })));
+    const { data, error } = await supabase.from('delivery_zones').select('*');
+    if (error) { console.error('Error fetching delivery zones:', error); return; }
+    setDeliveryZones((data || []).map(zone => ({ ...zone, base_fee: Number(zone.base_fee) })));
   }, []);
 
   const fetchAddresses = useCallback(async () => {
     if (!user) return;
-
     const { data, error } = await supabase
-      .from('addresses')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('is_default', { ascending: false });
-
-    if (error) {
-      console.error('Error fetching addresses:', error);
-      return;
-    }
-
+      .from('addresses').select('*').eq('user_id', user.id).order('is_default', { ascending: false });
+    if (error) { console.error('Error fetching addresses:', error); return; }
     setAddresses(data || []);
   }, [user]);
 
   const fetchOrders = useCallback(async () => {
-    if (!user) {
-      setLoading(false);
-      return;
-    }
-
+    if (!user) { setLoading(false); return; }
     const { data, error } = await supabase
       .from('orders')
-      .select(`
-        *,
-        order_items (
-          *,
-          listings (title, image_url)
-        ),
-        addresses (*)
-      `)
+      .select(`*, order_items (*, listings (title, image_url)), addresses (*)`)
       .or(`buyer_id.eq.${user.id},seller_id.eq.${user.id}`)
       .order('created_at', { ascending: false });
 
-    if (error) {
-      console.error('Error fetching orders:', error);
-      setLoading(false);
-      return;
-    }
+    if (error) { console.error('Error fetching orders:', error); setLoading(false); return; }
 
     const formattedOrders: Order[] = (data || []).map((order: any) => ({
       id: order.id,
@@ -150,16 +119,16 @@ export const useOrders = () => {
       delivery_provider: order.delivery_provider,
       rider_tracking_link: order.rider_tracking_link,
       delivery_checkpoint: order.delivery_checkpoint,
+      payment_proof_url: order.payment_proof_url,
+      payment_reference: order.payment_reference,
+      payment_status: order.payment_status || 'pending',
       items: order.order_items?.map((item: any) => ({
         id: item.id,
         order_id: item.order_id,
         listing_id: item.listing_id,
         quantity: item.quantity,
         price: Number(item.price),
-        listing: item.listings ? {
-          title: item.listings.title,
-          image_url: item.listings.image_url
-        } : undefined
+        listing: item.listings ? { title: item.listings.title, image_url: item.listings.image_url } : undefined
       })),
       address: order.addresses
     }));
@@ -170,41 +139,29 @@ export const useOrders = () => {
 
   const createAddress = async (address: Omit<Address, 'id' | 'user_id'>) => {
     if (!user) return { error: new Error('Not authenticated') };
-
     const { data, error } = await supabase
-      .from('addresses')
-      .insert({ ...address, user_id: user.id })
-      .select()
-      .single();
-
-    if (error) {
-      toast.error('Failed to save address');
-      return { error };
-    }
-
+      .from('addresses').insert({ ...address, user_id: user.id }).select().single();
+    if (error) { toast.error('Failed to save address'); return { error }; }
     fetchAddresses();
     return { data, error: null };
   };
 
   const createOrder = async (
     items: { listing_id: string; quantity: number; price: number; seller_id: string }[],
-    paymentMethod: 'gcash' | 'maya' | 'qr_ph' | 'cod',
+    paymentMethod: 'gcash' | 'maya' | 'qr_ph' | 'cod' | 'bank_transfer',
     addressId: string,
     deliveryFee: number,
     notes?: string,
     deliveryMethod?: 'buyer_book' | 'seller_book',
     courierId?: string,
-    courierName?: string
+    courierName?: string,
+    paymentReference?: string,
   ) => {
     if (!user) return { error: new Error('Not authenticated') };
 
-    const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    const total = subtotal + deliveryFee;
-
-    // Group items by seller
     const sellerIds = [...new Set(items.map(i => i.seller_id))];
-    
-    // For simplicity, create one order per seller
+    const paymentStatus = paymentMethod === 'cod' ? 'pending' : 'awaiting_review';
+
     const orderPromises = sellerIds.map(async (sellerId) => {
       const sellerItems = items.filter(i => i.seller_id === sellerId);
       const sellerSubtotal = sellerItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
@@ -225,6 +182,8 @@ export const useOrders = () => {
           delivery_status: 'pending',
           courier_id: courierId,
           delivery_provider: courierName,
+          payment_status: paymentStatus,
+          payment_reference: paymentReference,
         })
         .select()
         .single();
@@ -238,12 +197,8 @@ export const useOrders = () => {
         price: item.price
       }));
 
-      const { error: itemsError } = await supabase
-        .from('order_items')
-        .insert(orderItems);
-
+      const { error: itemsError } = await supabase.from('order_items').insert(orderItems);
       if (itemsError) throw itemsError;
-
       return order;
     });
 
@@ -265,14 +220,5 @@ export const useOrders = () => {
     fetchOrders();
   }, [fetchDeliveryZones, fetchAddresses, fetchOrders]);
 
-  return {
-    orders,
-    addresses,
-    deliveryZones,
-    loading,
-    createAddress,
-    createOrder,
-    refetch: fetchOrders,
-    refetchAddresses: fetchAddresses
-  };
+  return { orders, addresses, deliveryZones, loading, createAddress, createOrder, refetch: fetchOrders, refetchAddresses: fetchAddresses };
 };
