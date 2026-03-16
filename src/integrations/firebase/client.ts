@@ -8,7 +8,7 @@ const firebaseConfig = {
   apiKey: "AIzaSyC2g5BuAY6-S-TVpa9hujjxUaGk4DMkWOc",
   authDomain: "bentabarkada-40597313-e88ce.firebaseapp.com",
   projectId: "bentabarkada-40597313-e88ce",
-  storageBucket: "bentabarkada-40597313-e88ce.firebasestorage.app",
+  storageBucket: "bentabarkada-40597313-e88ce.appspot.com",
   messagingSenderId: "196417743944",
   appId: "1:196417743944:web:e94799f2dbc7d8c7b73c7d"
 };
