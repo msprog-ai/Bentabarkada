@@ -181,13 +181,14 @@ const Auth = () => {
     try {
       emailSchema.parse(email);
       passwordSchema.parse(password);
-      if (!fullName.trim()) throw new Error('Full name is required');
-      if (!shopName.trim()) throw new Error('Shop name is required');
+      if (!sanitizeInput(fullName).trim()) throw new Error('Full name is required');
+      if (!sanitizeInput(shopName).trim()) throw new Error('Shop name is required');
       phoneSchema.parse(phone);
       if (password !== confirmPassword) throw new Error('Passwords do not match');
+      if (checkPasswordStrength(password).score < 2) throw new Error('Please use a stronger password');
       if (!idType) throw new Error('Please select an ID type');
       if (!idFile) throw new Error('Please upload your government ID');
-      if (!address.trim()) throw new Error('Address is required');
+      if (!sanitizeInput(address).trim()) throw new Error('Address is required');
 
       const { error, data } = await supabase.auth.signUp({
         email,
