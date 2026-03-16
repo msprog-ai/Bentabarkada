@@ -36,7 +36,7 @@ export const Navbar = ({ searchQuery, onSearchChange, onPostClick }: NavbarProps
             <img
 
               alt="BentaBarkada"
-              className="h-14 w-auto object-cover" src="/lovable-uploads/1889f6cb-6489-4f6c-a3d6-892f55365ff0.png" />
+              className="h-14 w-auto object-cover" src={bentabarkadaLogo} />
 
           </div>
 
