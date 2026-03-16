@@ -540,7 +540,7 @@ const Auth = () => {
             <ArrowLeft className="w-4 h-4" /> Back to Marketplace
           </button>
           <div className="text-center">
-            <img src={bentaBarkadaLogo} alt="BentaBarkada" className="h-28 mx-auto mb-2" />
+            <img src={bentaBarkadaLogo} alt="BentaBarkada" className="h-40 w-auto mx-auto mb-2" />
             <p className="text-muted-foreground text-sm">
               {mode === 'login' && 'Sign in to your account'}
               {mode === 'signup-select' && 'Choose your account type'}

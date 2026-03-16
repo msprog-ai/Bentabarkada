@@ -603,7 +603,7 @@ const AdminDashboard = () => {
                       {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4" />} Reject
                     </Button>
                     <Button className="hero-gradient border-0 gap-1" onClick={() => handleVerificationAction('approve_verification')} disabled={actionLoading}>
-                      {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className "w-4 h-4" />} Approve Seller
+                      {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />} Approve Seller
                     </Button>
                   </DialogFooter>
                 </>

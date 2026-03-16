@@ -1,5 +1,5 @@
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { X, Upload, Loader2, Truck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,6 +12,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { db, storage } from '@/integrations/firebase/client';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { supabase } from '@/integrations/supabase/client';
 
 interface PostItemFormProps {
   onClose: () => void;
@@ -32,6 +33,27 @@ export const PostItemForm = ({ onClose, onSuccess }: PostItemFormProps) => {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Courier selection state
+  const [couriers, setCouriers] = useState<any[]>([]);
+  const [selectedCouriers, setSelectedCouriers] = useState<string[]>([]);
+  const [loadingCouriers, setLoadingCouriers] = useState(true);
+  // Fetch available couriers from Supabase
+  useEffect(() => {
+    const fetchCouriers = async () => {
+      setLoadingCouriers(true);
+      const { data, error } = await supabase
+        .from('shipping_couriers')
+        .select('*')
+        .eq('is_active', true);
+      if (!error && data) {
+        setCouriers(data);
+      } else {
+        setCouriers([]);
+      }
+      setLoadingCouriers(false);
+    };
+    fetchCouriers();
+  }, []);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -64,23 +86,23 @@ export const PostItemForm = ({ onClose, onSuccess }: PostItemFormProps) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
     if (!user) {
       toast.error('Please sign in to post an item');
       return;
     }
-
     if (!formData.category || !formData.title || !formData.price || !imageFile) {
       toast.error('Please fill in all required fields and add a photo.');
       return;
     }
-
+    if (selectedCouriers.length === 0) {
+      toast.error('Please select at least one shipping courier.');
+      return;
+    }
     setIsSubmitting(true);
-
     try {
       const imageUrl = await uploadImage(imageFile);
-
-      await addDoc(collection(db, 'listings'), {
+      // Add listing to Firestore
+      const listingRef = await addDoc(collection(db, 'listings'), {
         user_id: user.uid,
         title: formData.title,
         price: parseFloat(formData.price),
@@ -88,11 +110,17 @@ export const PostItemForm = ({ onClose, onSuccess }: PostItemFormProps) => {
         description: formData.description,
         category: formData.category,
         image_url: imageUrl,
-        approval_status: 'pending', // All new listings require admin approval
+        approval_status: 'pending',
         created_at: serverTimestamp(),
         updated_at: serverTimestamp(),
       });
-
+      // Insert into listing_couriers for each selected courier
+      for (const courierId of selectedCouriers) {
+        await supabase.from('listing_couriers').insert({
+          listing_id: listingRef.id,
+          courier_id: courierId
+        });
+      }
       toast.success('Item submitted! It will be visible after admin review.');
       onSuccess?.();
       onClose();
@@ -169,6 +197,40 @@ export const PostItemForm = ({ onClose, onSuccess }: PostItemFormProps) => {
               <div>
                 <Label>Description</Label>
                 <Textarea placeholder="Describe your item..." value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} rows={4}/>
+              </div>
+
+              {/* Shipping Options - Courier selection */}
+              <div>
+                <Label>Shipping Options *</Label>
+                {loadingCouriers ? (
+                  <div className="text-muted-foreground text-sm py-2">Loading couriers...</div>
+                ) : couriers.length === 0 ? (
+                  <div className="text-muted-foreground text-sm py-2">No couriers available.</div>
+                ) : (
+                  <div className="grid grid-cols-1 gap-2 mt-2">
+                    {couriers.map((courier) => (
+                      <label key={courier.id} className={`flex items-center gap-3 p-3 rounded-xl border-2 transition-colors cursor-pointer ${selectedCouriers.includes(courier.id) ? 'border-primary bg-primary/5' : 'border-border'}`}>
+                        <input
+                          type="checkbox"
+                          checked={selectedCouriers.includes(courier.id)}
+                          onChange={e => {
+                            if (e.target.checked) {
+                              setSelectedCouriers(prev => [...prev, courier.id]);
+                            } else {
+                              setSelectedCouriers(prev => prev.filter(id => id !== courier.id));
+                            }
+                          }}
+                          className="accent-primary w-5 h-5"
+                        />
+                        {courier.logo_url && <img src={courier.logo_url} alt={courier.name} className="w-8 h-8 rounded bg-white border" />}
+                        <span className="font-medium">{courier.name}</span>
+                        <span className="text-xs text-muted-foreground">{courier.estimated_days}</span>
+                        <span className="text-xs text-muted-foreground">₱{courier.base_fee}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground mt-1">Select at least one courier. Buyers will choose from these at checkout.</p>
               </div>
 
               <Button type="submit" className="w-full hero-gradient border-0" disabled={isSubmitting}>
