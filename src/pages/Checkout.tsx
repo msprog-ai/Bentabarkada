@@ -75,10 +75,14 @@ const Checkout = () => {
   const handleProofFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('File must be less than 5MB');
+    
+    const validation = validateFile(file);
+    if (!validation.valid) {
+      toast.error(validation.error);
+      e.target.value = '';
       return;
     }
+    
     setPaymentProofFile(file);
     const reader = new FileReader();
     reader.onload = () => setPaymentProofPreview(reader.result as string);
@@ -86,14 +90,15 @@ const Checkout = () => {
   };
 
   const uploadPaymentProof = async (orderId: string, file: File): Promise<string> => {
-    const ext = file.name.split('.').pop();
-    const path = `payment-proofs/${orderId}.${ext}`;
+    const secureName = generateSecureFilename(file.name);
+    // Store in private bucket, organized by user ID
+    const path = `${user!.id}/${orderId}-${secureName}`;
     const { error } = await supabase.storage
-      .from('delivery-proofs')
+      .from('payment-proofs')
       .upload(path, file, { upsert: true });
     if (error) throw error;
-    const { data: { publicUrl } } = supabase.storage.from('delivery-proofs').getPublicUrl(path);
-    return publicUrl;
+    // Return the path (not public URL — will be accessed via signed URLs)
+    return path;
   };
 
   const handleAddAddress = async () => {
