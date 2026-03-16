@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Package, ArrowLeft, Clock, CheckCircle, Truck, PackageCheck, XCircle, User, MapPin, Phone, CreditCard, Bike, Gavel } from 'lucide-react';
+import { Package, ArrowLeft, Clock, CheckCircle, Truck, PackageCheck, XCircle, User, MapPin, Phone, CreditCard, Bike, Gavel, AlertCircle, ImageIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
