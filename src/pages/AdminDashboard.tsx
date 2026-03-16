@@ -481,6 +481,51 @@ const AdminDashboard = () => {
               </div>
             )}
           </TabsContent>
+
+          {/* Audit Logs Tab */}
+          <TabsContent value="audit_logs">
+            {dataLoading ? (
+              <div className="space-y-3">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}</div>
+            ) : data.length === 0 ? (
+              <EmptyState icon={ScrollText} message="No audit logs yet" />
+            ) : (
+              <div className="rounded-xl border border-border overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Timestamp</TableHead>
+                      <TableHead>Admin</TableHead>
+                      <TableHead>Action</TableHead>
+                      <TableHead>Target</TableHead>
+                      <TableHead>IP Address</TableHead>
+                      <TableHead>Details</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {data.map((log: any) => (
+                      <TableRow key={log.id}>
+                        <TableCell className="text-sm">{new Date(log.created_at).toLocaleString()}</TableCell>
+                        <TableCell className="font-medium">{log.admin_name}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="capitalize">
+                            {log.action.replace(/_/g, ' ')}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          <span className="capitalize">{log.target_type}</span>
+                          {log.target_id && <span className="text-muted-foreground ml-1 text-xs">({log.target_id.slice(0, 8)}…)</span>}
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground font-mono">{log.ip_address || '—'}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">
+                          {log.details && Object.keys(log.details).length > 0 ? JSON.stringify(log.details) : '—'}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </TabsContent>
         </Tabs>
       </div>
 
