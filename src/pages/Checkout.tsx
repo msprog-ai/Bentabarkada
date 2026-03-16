@@ -414,7 +414,7 @@ const Checkout = () => {
                         <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-border rounded-lg cursor-pointer hover:border-primary/50 transition-colors">
                           <Upload className="w-6 h-6 text-muted-foreground mb-2" />
                           <span className="text-sm text-muted-foreground">Click to upload screenshot (max 5MB)</span>
-                          <input type="file" accept="image/*" onChange={handleProofFileChange} className="hidden" />
+                          <input type="file" accept=".jpg,.jpeg,.png,.webp" onChange={handleProofFileChange} className="hidden" />
                         </label>
                       )}
                     </div>
