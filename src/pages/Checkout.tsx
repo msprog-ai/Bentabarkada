@@ -14,6 +14,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { philippineCities, getDeliveryZoneByCity } from '@/data/philippineLocations';
 import CourierSelector, { Courier } from '@/components/CourierSelector';
+import { validateFile, generateSecureFilename, sanitizeInput } from '@/lib/security';
 
 const PAYMENT_METHODS = [
   { id: 'gcash', name: 'GCash', desc: 'Send payment via GCash', icon: '💚' },
@@ -74,10 +75,14 @@ const Checkout = () => {
   const handleProofFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('File must be less than 5MB');
+    
+    const validation = validateFile(file);
+    if (!validation.valid) {
+      toast.error(validation.error);
+      e.target.value = '';
       return;
     }
+    
     setPaymentProofFile(file);
     const reader = new FileReader();
     reader.onload = () => setPaymentProofPreview(reader.result as string);
@@ -85,14 +90,15 @@ const Checkout = () => {
   };
 
   const uploadPaymentProof = async (orderId: string, file: File): Promise<string> => {
-    const ext = file.name.split('.').pop();
-    const path = `payment-proofs/${orderId}.${ext}`;
+    const secureName = generateSecureFilename(file.name);
+    // Store in private bucket, organized by user ID
+    const path = `${user!.id}/${orderId}-${secureName}`;
     const { error } = await supabase.storage
-      .from('delivery-proofs')
+      .from('payment-proofs')
       .upload(path, file, { upsert: true });
     if (error) throw error;
-    const { data: { publicUrl } } = supabase.storage.from('delivery-proofs').getPublicUrl(path);
-    return publicUrl;
+    // Return the path (not public URL — will be accessed via signed URLs)
+    return path;
   };
 
   const handleAddAddress = async () => {
@@ -408,7 +414,7 @@ const Checkout = () => {
                         <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-border rounded-lg cursor-pointer hover:border-primary/50 transition-colors">
                           <Upload className="w-6 h-6 text-muted-foreground mb-2" />
                           <span className="text-sm text-muted-foreground">Click to upload screenshot (max 5MB)</span>
-                          <input type="file" accept="image/*" onChange={handleProofFileChange} className="hidden" />
+                          <input type="file" accept=".jpg,.jpeg,.png,.webp" onChange={handleProofFileChange} className="hidden" />
                         </label>
                       )}
                     </div>

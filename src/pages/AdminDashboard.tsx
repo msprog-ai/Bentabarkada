@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { ShieldCheck, Package, ShoppingBag, Users, UserCheck, Eye, Check, X, Loader2, ArrowLeft, CreditCard, Store, ShoppingCart, Filter } from 'lucide-react';
+import { ShieldCheck, Package, ShoppingBag, Users, UserCheck, Eye, Check, X, Loader2, ArrowLeft, CreditCard, Store, ShoppingCart, Filter, ScrollText } from 'lucide-react';
 import { toast } from 'sonner';
 
 const AdminDashboard = () => {
@@ -205,6 +205,7 @@ const AdminDashboard = () => {
             <TabsTrigger value="listings" className="gap-2"><ShoppingBag className="w-4 h-4" /> Listings</TabsTrigger>
             <TabsTrigger value="users" className="gap-2"><Users className="w-4 h-4" /> Users</TabsTrigger>
             <TabsTrigger value="verifications" className="gap-2"><UserCheck className="w-4 h-4" /> Seller Approvals</TabsTrigger>
+            <TabsTrigger value="audit_logs" className="gap-2"><ScrollText className="w-4 h-4" /> Audit Logs</TabsTrigger>
           </TabsList>
 
           {/* Orders Tab */}
@@ -477,6 +478,51 @@ const AdminDashboard = () => {
                     </TableBody>
                   </Table>
                 </div>
+              </div>
+            )}
+          </TabsContent>
+
+          {/* Audit Logs Tab */}
+          <TabsContent value="audit_logs">
+            {dataLoading ? (
+              <div className="space-y-3">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}</div>
+            ) : data.length === 0 ? (
+              <EmptyState icon={ScrollText} message="No audit logs yet" />
+            ) : (
+              <div className="rounded-xl border border-border overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Timestamp</TableHead>
+                      <TableHead>Admin</TableHead>
+                      <TableHead>Action</TableHead>
+                      <TableHead>Target</TableHead>
+                      <TableHead>IP Address</TableHead>
+                      <TableHead>Details</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {data.map((log: any) => (
+                      <TableRow key={log.id}>
+                        <TableCell className="text-sm">{new Date(log.created_at).toLocaleString()}</TableCell>
+                        <TableCell className="font-medium">{log.admin_name}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="capitalize">
+                            {log.action.replace(/_/g, ' ')}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          <span className="capitalize">{log.target_type}</span>
+                          {log.target_id && <span className="text-muted-foreground ml-1 text-xs">({log.target_id.slice(0, 8)}…)</span>}
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground font-mono">{log.ip_address || '—'}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">
+                          {log.details && Object.keys(log.details).length > 0 ? JSON.stringify(log.details) : '—'}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               </div>
             )}
           </TabsContent>

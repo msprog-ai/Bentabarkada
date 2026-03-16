@@ -9,11 +9,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { z } from 'zod';
-import { Loader2, Mail, ArrowLeft, ShoppingBag, Store, Upload, Eye, EyeOff } from 'lucide-react';
+import { Loader2, Mail, ArrowLeft, ShoppingBag, Store, Upload, Eye, EyeOff, Shield } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { validateFile, generateSecureFilename, checkPasswordStrength, sanitizeInput, clientRateLimit } from '@/lib/security';
 
 const emailSchema = z.string().email('Please enter a valid email address');
-const passwordSchema = z.string().min(6, 'Password must be at least 6 characters');
+const passwordSchema = z.string().min(8, 'Password must be at least 8 characters');
 const phoneSchema = z.string().regex(/^(\+63|0)?9\d{9}$/, 'Please enter a valid Philippine phone number');
 
 type AuthMode = 'login' | 'signup-select' | 'signup-buyer' | 'signup-seller' | 'forgot-password' | 'reset-sent';
@@ -57,10 +58,14 @@ const Auth = () => {
   const handleIdFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('File must be less than 5MB');
+    
+    const validation = validateFile(file, { allowPdf: true });
+    if (!validation.valid) {
+      toast.error(validation.error);
+      e.target.value = '';
       return;
     }
+    
     setIdFile(file);
     const reader = new FileReader();
     reader.onload = () => setIdPreview(reader.result as string);
@@ -68,8 +73,8 @@ const Auth = () => {
   };
 
   const uploadIdFile = async (userId: string, file: File): Promise<string> => {
-    const ext = file.name.split('.').pop();
-    const path = `${userId}/gov-id.${ext}`;
+    const secureName = generateSecureFilename(file.name);
+    const path = `${userId}/${secureName}`;
     const { error } = await supabase.storage
       .from('verification-documents')
       .upload(path, file, { upsert: true });
@@ -79,6 +84,13 @@ const Auth = () => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Client-side rate limiting
+    if (!clientRateLimit(`login_${email}`, 5, 60000)) {
+      toast.error('Too many login attempts. Please wait a minute before trying again.');
+      return;
+    }
+    
     setLoading(true);
     try {
       emailSchema.parse(email);
@@ -126,9 +138,10 @@ const Auth = () => {
     try {
       emailSchema.parse(email);
       passwordSchema.parse(password);
-      if (!fullName.trim()) throw new Error('Full name is required');
+      if (!sanitizeInput(fullName).trim()) throw new Error('Full name is required');
       phoneSchema.parse(phone);
       if (password !== confirmPassword) throw new Error('Passwords do not match');
+      if (checkPasswordStrength(password).score < 2) throw new Error('Please use a stronger password');
 
       const { error, data } = await supabase.auth.signUp({
         email,
@@ -168,13 +181,14 @@ const Auth = () => {
     try {
       emailSchema.parse(email);
       passwordSchema.parse(password);
-      if (!fullName.trim()) throw new Error('Full name is required');
-      if (!shopName.trim()) throw new Error('Shop name is required');
+      if (!sanitizeInput(fullName).trim()) throw new Error('Full name is required');
+      if (!sanitizeInput(shopName).trim()) throw new Error('Shop name is required');
       phoneSchema.parse(phone);
       if (password !== confirmPassword) throw new Error('Passwords do not match');
+      if (checkPasswordStrength(password).score < 2) throw new Error('Please use a stronger password');
       if (!idType) throw new Error('Please select an ID type');
       if (!idFile) throw new Error('Please upload your government ID');
-      if (!address.trim()) throw new Error('Address is required');
+      if (!sanitizeInput(address).trim()) throw new Error('Address is required');
 
       const { error, data } = await supabase.auth.signUp({
         email,
@@ -241,24 +255,52 @@ const Auth = () => {
     }
   };
 
-  const PasswordInput = ({ value, onChange, placeholder = '••••••••' }: { value: string; onChange: (v: string) => void; placeholder?: string }) => (
-    <div className="relative">
-      <Input
-        type={showPassword ? 'text' : 'password'}
-        placeholder={placeholder}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        required
-      />
-      <button
-        type="button"
-        onClick={() => setShowPassword(!showPassword)}
-        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-      >
-        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-      </button>
-    </div>
-  );
+  const PasswordInput = ({ value, onChange, placeholder = '••••••••', showStrength = false }: { value: string; onChange: (v: string) => void; placeholder?: string; showStrength?: boolean }) => {
+    const strength = showStrength && value ? checkPasswordStrength(value) : null;
+    return (
+      <div className="space-y-2">
+        <div className="relative">
+          <Input
+            type={showPassword ? 'text' : 'password'}
+            placeholder={placeholder}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            required
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+          >
+            {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+          </button>
+        </div>
+        {strength && (
+          <div className="space-y-1">
+            <div className="flex gap-1">
+              {[0, 1, 2, 3].map((i) => (
+                <div
+                  key={i}
+                  className={`h-1.5 flex-1 rounded-full transition-colors ${
+                    i < strength.score ? strength.color : 'bg-muted'
+                  }`}
+                />
+              ))}
+            </div>
+            <div className="flex items-center gap-1">
+              <Shield className="w-3 h-3 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground">{strength.label}</span>
+            </div>
+            {strength.suggestions.length > 0 && (
+              <ul className="text-xs text-muted-foreground space-y-0.5">
+                {strength.suggestions.map((s, i) => <li key={i}>• {s}</li>)}
+              </ul>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const renderContent = () => {
     switch (mode) {
@@ -332,7 +374,7 @@ const Auth = () => {
             </div>
             <div>
               <Label>Password *</Label>
-              <PasswordInput value={password} onChange={setPassword} />
+              <PasswordInput value={password} onChange={setPassword} showStrength />
             </div>
             <div>
               <Label>Confirm Password *</Label>
@@ -408,8 +450,8 @@ const Auth = () => {
                 ) : (
                   <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-border rounded-lg cursor-pointer hover:border-primary/50 transition-colors">
                     <Upload className="w-6 h-6 text-muted-foreground mb-2" />
-                    <span className="text-sm text-muted-foreground">Click to upload (max 5MB)</span>
-                    <input type="file" accept="image/*" onChange={handleIdFileChange} className="hidden" />
+                    <span className="text-sm text-muted-foreground">Click to upload (JPG, PNG, PDF — max 5MB)</span>
+                    <input type="file" accept=".jpg,.jpeg,.png,.webp,.pdf" onChange={handleIdFileChange} className="hidden" />
                   </label>
                 )}
               </div>
@@ -422,7 +464,7 @@ const Auth = () => {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label>Password *</Label>
-                <PasswordInput value={password} onChange={setPassword} />
+                <PasswordInput value={password} onChange={setPassword} showStrength />
               </div>
               <div>
                 <Label>Confirm Password *</Label>
@@ -524,6 +566,10 @@ const Auth = () => {
         <div className="bg-card p-6 sm:p-8 rounded-2xl card-shadow">
           {renderContent()}
         </div>
+        <p className="text-center text-xs text-muted-foreground mt-4">
+          By using BentaBarkada, you agree to our{' '}
+          <a href="/privacy" className="text-primary hover:underline">Privacy Policy</a>
+        </p>
       </div>
     </div>
   );
