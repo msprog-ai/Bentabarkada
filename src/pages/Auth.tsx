@@ -374,7 +374,7 @@ const Auth = () => {
             </div>
             <div>
               <Label>Password *</Label>
-              <PasswordInput value={password} onChange={setPassword} />
+              <PasswordInput value={password} onChange={setPassword} showStrength />
             </div>
             <div>
               <Label>Confirm Password *</Label>
