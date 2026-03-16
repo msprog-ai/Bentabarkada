@@ -1,8 +1,11 @@
+
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/integrations/firebase/client';
+import { collection, query, where, orderBy, getDocs, addDoc, doc, getDoc, writeBatch, Timestamp, documentId } from 'firebase/firestore';
 import { useAuth } from './useAuth';
 import { toast } from 'sonner';
 
+// Interfaces remain largely the same. Dates will be handled as Firestore Timestamps or ISO strings.
 export interface DeliveryZone {
   id: string;
   name: string;
@@ -36,7 +39,7 @@ export interface Order {
   delivery_fee: number;
   total: number;
   notes?: string;
-  created_at: string;
+  created_at: string; // Storing as ISO string
   items?: OrderItem[];
   address?: Address;
   delivery_method?: 'buyer_book' | 'seller_book' | null;
@@ -66,6 +69,14 @@ export interface OrderItem {
   };
 }
 
+// Helper to convert Firestore Timestamp to ISO string
+const toISOString = (timestamp: Timestamp | string): string => {
+  if (timestamp instanceof Timestamp) {
+    return timestamp.toDate().toISOString();
+  }
+  return timestamp;
+};
+
 export const useOrders = () => {
   const { user } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
@@ -74,76 +85,100 @@ export const useOrders = () => {
   const [loading, setLoading] = useState(true);
 
   const fetchDeliveryZones = useCallback(async () => {
-    const { data, error } = await supabase.from('delivery_zones').select('*');
-    if (error) { console.error('Error fetching delivery zones:', error); return; }
-    setDeliveryZones((data || []).map(zone => ({ ...zone, base_fee: Number(zone.base_fee) })));
+    try {
+      const zonesSnapshot = await getDocs(collection(db, 'delivery_zones'));
+      const zones = zonesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as DeliveryZone));
+      setDeliveryZones(zones.map(zone => ({ ...zone, base_fee: Number(zone.base_fee) })));
+    } catch (error) {
+      console.error('Error fetching delivery zones:', error);
+    }
   }, []);
 
   const fetchAddresses = useCallback(async () => {
     if (!user) return;
-    const { data, error } = await supabase
-      .from('addresses').select('*').eq('user_id', user.id).order('is_default', { ascending: false });
-    if (error) { console.error('Error fetching addresses:', error); return; }
-    setAddresses(data || []);
+    try {
+      const q = query(collection(db, 'addresses'), where('user_id', '==', user.uid), orderBy('is_default', 'desc'));
+      const addressesSnapshot = await getDocs(q);
+      const userAddresses = addressesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Address));
+      setAddresses(userAddresses);
+    } catch (error) {
+      console.error('Error fetching addresses:', error);
+    }
   }, [user]);
 
   const fetchOrders = useCallback(async () => {
     if (!user) { setLoading(false); return; }
-    const { data, error } = await supabase
-      .from('orders')
-      .select(`*, order_items (*, listings (title, image_url)), addresses (*)`)
-      .or(`buyer_id.eq.${user.id},seller_id.eq.${user.id}`)
-      .order('created_at', { ascending: false });
+    setLoading(true);
+    try {
+      const buyerQuery = query(collection(db, 'orders'), where('buyer_id', '==', user.uid));
+      const sellerQuery = query(collection(db, 'orders'), where('seller_id', '==', user.uid));
 
-    if (error) { console.error('Error fetching orders:', error); setLoading(false); return; }
+      const [buyerOrdersSnapshot, sellerOrdersSnapshot] = await Promise.all([getDocs(buyerQuery), getDocs(sellerQuery)]);
 
-    const formattedOrders: Order[] = (data || []).map((order: any) => ({
-      id: order.id,
-      buyer_id: order.buyer_id,
-      seller_id: order.seller_id,
-      address_id: order.address_id,
-      status: order.status,
-      payment_method: order.payment_method,
-      subtotal: Number(order.subtotal),
-      delivery_fee: Number(order.delivery_fee),
-      total: Number(order.total),
-      notes: order.notes,
-      created_at: order.created_at,
-      delivery_method: order.delivery_method,
-      delivery_status: order.delivery_status || 'pending',
-      proof_of_delivery_url: order.proof_of_delivery_url,
-      pickup_photo_url: order.pickup_photo_url,
-      rider_name: order.rider_name,
-      rider_phone: order.rider_phone,
-      tracking_number: order.tracking_number,
-      delivery_provider: order.delivery_provider,
-      rider_tracking_link: order.rider_tracking_link,
-      delivery_checkpoint: order.delivery_checkpoint,
-      payment_proof_url: order.payment_proof_url,
-      payment_reference: order.payment_reference,
-      payment_status: order.payment_status || 'pending',
-      items: order.order_items?.map((item: any) => ({
-        id: item.id,
-        order_id: item.order_id,
-        listing_id: item.listing_id,
-        quantity: item.quantity,
-        price: Number(item.price),
-        listing: item.listings ? { title: item.listings.title, image_url: item.listings.image_url } : undefined
-      })),
-      address: order.addresses
-    }));
+      const orderDocs = new Map();
+      buyerOrdersSnapshot.forEach(doc => orderDocs.set(doc.id, doc.data()));
+      sellerOrdersSnapshot.forEach(doc => orderDocs.set(doc.id, doc.data()));
 
-    setOrders(formattedOrders);
-    setLoading(false);
+      if (orderDocs.size === 0) {
+        setOrders([]);
+        return;
+      }
+      
+      const orderIds = Array.from(orderDocs.keys());
+      const addressIds = [...new Set(Array.from(orderDocs.values()).map((o: any) => o.address_id).filter(Boolean))];
+
+      const [itemsSnapshot, addressesSnapshot] = await Promise.all([
+        getDocs(query(collection(db, 'order_items'), where('order_id', 'in', orderIds))),
+        addressIds.length > 0 ? getDocs(query(collection(db, 'addresses'), where(documentId(), 'in', addressIds))) : Promise.resolve({ docs: [] })
+      ]);
+
+      const addressesMap = new Map(addressesSnapshot.docs.map(doc => [doc.id, { id: doc.id, ...doc.data() }]));
+      
+      const listingIds = [...new Set(itemsSnapshot.docs.map(doc => doc.data().listing_id).filter(Boolean))];
+      const listingsSnapshot = listingIds.length > 0 ? await getDocs(query(collection(db, 'listings'), where(documentId(), 'in', listingIds))) : { docs: [] };
+      const listingsMap = new Map(listingsSnapshot.docs.map(doc => [doc.id, doc.data()]));
+      
+      const itemsByOrderId = new Map<string, any[]>();
+      itemsSnapshot.docs.forEach(doc => {
+        const item = { id: doc.id, ...doc.data() };
+        const listing = listingsMap.get(item.listing_id);
+        const items = itemsByOrderId.get(item.order_id) || [];
+        items.push({ ...item, price: Number(item.price), listing: listing ? { title: listing.title, image_url: listing.image_url } : undefined });
+        itemsByOrderId.set(item.order_id, items);
+      });
+
+      const formattedOrders: Order[] = orderIds.map(id => {
+        const order: any = { id, ...orderDocs.get(id) };
+        return {
+          ...order,
+          created_at: toISOString(order.created_at),
+          subtotal: Number(order.subtotal),
+          delivery_fee: Number(order.delivery_fee),
+          total: Number(order.total),
+          items: itemsByOrderId.get(id) || [],
+          address: addressesMap.get(order.address_id)
+        };
+      }).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      
+      setOrders(formattedOrders);
+
+    } catch (error) {
+      console.error('Error fetching orders:', error);
+    } finally {
+      setLoading(false);
+    }
   }, [user]);
 
   const createAddress = async (address: Omit<Address, 'id' | 'user_id'>) => {
     if (!user) return { error: new Error('Not authenticated') };
-    const { data, error } = await supabase
-      .from('addresses').insert({ ...address, user_id: user.id }).select().single();
-    if (error) { toast.error('Failed to save address'); return { error }; }
-    fetchAddresses();
-    return { data, error: null };
+    try {
+      const docRef = await addDoc(collection(db, 'addresses'), { ...address, user_id: user.uid });
+      fetchAddresses();
+      return { data: { id: docRef.id, ...address, user_id: user.uid }, error: null };
+    } catch (error) {
+      toast.error('Failed to save address');
+      return { error };
+    }
   };
 
   const createOrder = async (
@@ -159,51 +194,49 @@ export const useOrders = () => {
   ) => {
     if (!user) return { error: new Error('Not authenticated') };
 
-    const sellerIds = [...new Set(items.map(i => i.seller_id))];
-    const paymentStatus = paymentMethod === 'cod' ? 'pending' : 'awaiting_review';
+    try {
+      const batch = writeBatch(db);
+      const sellerIds = [...new Set(items.map(i => i.seller_id))];
+      const paymentStatus = paymentMethod === 'cod' ? 'pending' : 'awaiting_review';
 
-    const orderPromises = sellerIds.map(async (sellerId) => {
-      const sellerItems = items.filter(i => i.seller_id === sellerId);
-      const sellerSubtotal = sellerItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
-      const sellerTotal = sellerSubtotal + (deliveryFee / sellerIds.length);
-
-      const { data: order, error: orderError } = await supabase
-        .from('orders')
-        .insert({
+      for (const sellerId of sellerIds) {
+        const sellerItems = items.filter(i => i.seller_id === sellerId);
+        const sellerSubtotal = sellerItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+        const sellerTotal = sellerSubtotal + (deliveryFee / sellerIds.length);
+        
+        const orderRef = doc(collection(db, 'orders'));
+        batch.set(orderRef, {
           buyer_id: user.id,
           seller_id: sellerId,
           address_id: addressId,
           payment_method: paymentMethod,
           subtotal: sellerSubtotal,
-          delivery_fee: deliveryFee / sellerIds.length,
+          delivery_fee: deliveryFee / sellerIds.length, // Distribute fee
           total: sellerTotal,
           notes,
+          status: 'pending',
           delivery_method: deliveryMethod,
           delivery_status: 'pending',
-          courier_id: courierId,
-          delivery_provider: courierName,
           payment_status: paymentStatus,
           payment_reference: paymentReference,
-        })
-        .select()
-        .single();
+          created_at: Timestamp.now(),
+          // Fields like courierId and delivery_provider are omitted if undefined
+          ...(courierId && { courier_id: courierId }),
+          ...(courierName && { delivery_provider: courierName }),
+        });
 
-      if (orderError) throw orderError;
+        for (const item of sellerItems) {
+          const itemRef = doc(collection(db, 'order_items'));
+          batch.set(itemRef, {
+            order_id: orderRef.id,
+            listing_id: item.listing_id,
+            quantity: item.quantity,
+            price: item.price
+          });
+        }
+      }
 
-      const orderItems = sellerItems.map(item => ({
-        order_id: order.id,
-        listing_id: item.listing_id,
-        quantity: item.quantity,
-        price: item.price
-      }));
-
-      const { error: itemsError } = await supabase.from('order_items').insert(orderItems);
-      if (itemsError) throw itemsError;
-      return order;
-    });
-
-    try {
-      await Promise.all(orderPromises);
+      await batch.commit();
       toast.success('Order placed successfully!');
       fetchOrders();
       return { error: null };
@@ -215,10 +248,14 @@ export const useOrders = () => {
   };
 
   useEffect(() => {
-    fetchDeliveryZones();
-    fetchAddresses();
-    fetchOrders();
-  }, [fetchDeliveryZones, fetchAddresses, fetchOrders]);
+    if (user) {
+      fetchDeliveryZones();
+      fetchAddresses();
+      fetchOrders();
+    }
+  }, [user, fetchDeliveryZones, fetchAddresses, fetchOrders]);
 
   return { orders, addresses, deliveryZones, loading, createAddress, createOrder, refetch: fetchOrders, refetchAddresses: fetchAddresses };
 };
+
+

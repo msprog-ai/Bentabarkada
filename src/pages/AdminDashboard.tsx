@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useAdmin } from '@/hooks/useAdmin';
@@ -14,10 +15,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { ShieldCheck, Package, ShoppingBag, Users, UserCheck, Eye, Check, X, Loader2, ArrowLeft, CreditCard, Store, ShoppingCart, Filter, ScrollText } from 'lucide-react';
 import { toast } from 'sonner';
+import { db } from '@/integrations/firebase/client';
+import { collection, doc, writeBatch, getDocs, query, where, updateDoc, getDoc } from 'firebase/firestore';
+import { functions } from '@/integrations/firebase/client';
+import { httpsCallable } from 'firebase/functions';
 
 const AdminDashboard = () => {
   const { user, loading: authLoading } = useAuth();
-  const { isAdmin, loading: adminLoading, fetchAdminData } = useAdmin();
+  const { isAdmin, loading: adminLoading } = useAdmin();
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState('orders');
@@ -42,45 +47,63 @@ const AdminDashboard = () => {
     if (!authLoading && !adminLoading && user && !isAdmin) navigate('/');
   }, [authLoading, adminLoading, user, isAdmin, navigate]);
 
-  useEffect(() => {
-    if (isAdmin) loadData(activeTab);
-  }, [isAdmin, activeTab]);
-
-  const loadData = async (tab: string) => {
+  const fetchAdminData = useCallback(async (tab: string) => {
+    if (!isAdmin) return [];
     setDataLoading(true);
     try {
+        const adminDataFetcher = httpsCallable(functions, 'adminDataFetcher');
+        const result = await adminDataFetcher({ tab });
+        const data = (result.data as any)?.data || [];
+
+        // Fetch profiles for users, orders, etc.
+        if (tab === 'users' || tab === 'orders') {
+            const profileIds = [...new Set(data.flatMap((item: any) => 
+                [item.buyer_id, item.seller_id, item.user_id].filter(Boolean)
+            ))];
+            
+            if (profileIds.length > 0) {
+                const profilesQuery = query(collection(db, 'profiles'), where('user_id', 'in', profileIds));
+                const profilesSnapshot = await getDocs(profilesQuery);
+                const profilesMap = new Map(profilesSnapshot.docs.map(doc => [doc.data().user_id, doc.data()]));
+                
+                return data.map((item: any) => ({
+                    ...item,
+                    buyer_profile: profilesMap.get(item.buyer_id),
+                    seller_profile: profilesMap.get(item.seller_id),
+                    ...(profilesMap.get(item.user_id) && { ...profilesMap.get(item.user_id), ...item })
+                }));
+            }
+        }
+        return data;
+    } catch (e) {
+        console.error('Error fetching admin data:', e);
+        toast.error('Failed to load data. You may not have the required permissions.');
+        return [];
+    } finally {
+        setDataLoading(false);
+    }
+}, [isAdmin]);
+
+
+  const loadData = useCallback(async (tab: string) => {
       const result = await fetchAdminData(tab);
       setData(result || []);
-    } catch (e) {
-      console.error('Admin data error:', e);
-      setData([]);
-    }
-    setDataLoading(false);
-  };
+  }, [fetchAdminData]);
 
-  const callAdminAction = async (body: Record<string, any>) => {
+  useEffect(() => {
+    if (isAdmin) {
+      loadData(activeTab);
+    }
+  }, [isAdmin, activeTab, loadData]);
+
+  const callAdminAction = async (action: string, payload: Record<string, any>) => {
     setActionLoading(true);
     try {
-      const { data: { session } } = await (await import('@/integrations/supabase/client')).supabase.auth.getSession();
-      if (!session) throw new Error('Not authenticated');
-      const res = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-data`,
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${session.access_token}`,
-            'Content-Type': 'application/json',
-            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-          },
-          body: JSON.stringify(body),
-        }
-      );
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || 'Failed');
-      }
+      const adminAction = httpsCallable(functions, 'adminAction');
+      await adminAction({ action, ...payload });
       return true;
     } catch (err: any) {
+        console.error(err);
       toast.error(err.message || 'Action failed');
       return false;
     } finally {
@@ -94,8 +117,7 @@ const AdminDashboard = () => {
       toast.error('Please provide a reason for rejection');
       return;
     }
-    const success = await callAdminAction({
-      action,
+    const success = await callAdminAction(action, {
       verification_id: reviewingVerification.id,
       rejection_reason: rejectionReason || undefined,
     });
@@ -108,7 +130,7 @@ const AdminDashboard = () => {
   };
 
   const handleListingAction = async (action: 'approve_listing' | 'reject_listing', listingId: string) => {
-    const success = await callAdminAction({ action, listing_id: listingId });
+    const success = await callAdminAction(action, { listing_id: listingId });
     if (success) {
       toast.success(action === 'approve_listing' ? 'Listing approved!' : 'Listing rejected');
       setReviewingListing(null);
@@ -116,16 +138,16 @@ const AdminDashboard = () => {
     }
   };
 
-  const handleUserAction = async (action: 'approve_user' | 'reject_user', userId: string) => {
-    const success = await callAdminAction({ action, user_id: userId });
+  const handleUserAction = async (action: 'approve_user' | 'suspend_user', userId: string) => {
+    const success = await callAdminAction(action, { user_id: userId });
     if (success) {
-      toast.success(action === 'approve_user' ? 'User approved!' : 'User access revoked');
+      toast.success(action === 'approve_user' ? 'User approved!' : 'User access suspended');
       loadData('users');
     }
   };
 
   const handlePaymentAction = async (action: 'confirm_payment' | 'reject_payment', orderId: string) => {
-    const success = await callAdminAction({ action, order_id: orderId });
+    const success = await callAdminAction(action, { order_id: orderId });
     if (success) {
       toast.success(action === 'confirm_payment' ? 'Payment confirmed!' : 'Payment rejected');
       setReviewingPayment(null);
@@ -173,10 +195,11 @@ const AdminDashboard = () => {
 
   // Filtered data
   const filteredUsers = data.filter((u: any) => {
-    if (userTypeFilter === 'sellers') return u.user_type === 'seller';
-    if (userTypeFilter === 'buyers') return u.user_type === 'buyer';
-    if (userTypeFilter === 'pending') return !u.is_approved;
-    return true;
+      if (!u.user_type) return false; // Ensure user_type exists
+      if (userTypeFilter === 'sellers') return u.user_type === 'seller';
+      if (userTypeFilter === 'buyers') return u.user_type === 'buyer';
+      if (userTypeFilter === 'pending') return !u.is_approved;
+      return true;
   });
 
   const filteredOrders = data.filter((o: any) => {
@@ -354,13 +377,13 @@ const AdminDashboard = () => {
 
           {/* Users Tab */}
           <TabsContent value="users">
-            {dataLoading ? <Skeleton className="h-64 w-full" /> : data.length === 0 ? <EmptyState icon={Users} message="No users yet" /> : (
+            {dataLoading ? <Skeleton className="h-64 w-full" /> : filteredUsers.length === 0 ? <EmptyState icon={Users} message="No users yet" /> : (
               <>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                  <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Total Users</CardTitle></CardHeader><CardContent><p className="text-2xl font-bold">{data.length}</p></CardContent></Card>
-                  <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Sellers</CardTitle></CardHeader><CardContent><p className="text-2xl font-bold text-primary">{data.filter((u: any) => u.user_type === 'seller').length}</p></CardContent></Card>
-                  <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Buyers</CardTitle></CardHeader><CardContent><p className="text-2xl font-bold text-blue-600">{data.filter((u: any) => u.user_type === 'buyer').length}</p></CardContent></Card>
-                  <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Pending Approval</CardTitle></CardHeader><CardContent><p className="text-2xl font-bold text-yellow-600">{data.filter((u: any) => !u.is_approved).length}</p></CardContent></Card>
+                  <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Total Users</CardTitle></CardHeader><CardContent><p className="text-2xl font-bold">{filteredUsers.length}</p></CardContent></Card>
+                  <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Sellers</CardTitle></CardHeader><CardContent><p className="text-2xl font-bold text-primary">{filteredUsers.filter((u: any) => u.user_type === 'seller').length}</p></CardContent></Card>
+                  <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Buyers</CardTitle></CardHeader><CardContent><p className="text-2xl font-bold text-blue-600">{filteredUsers.filter((u: any) => u.user_type === 'buyer').length}</p></CardContent></Card>
+                  <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Pending Approval</CardTitle></CardHeader><CardContent><p className="text-2xl font-bold text-yellow-600">{filteredUsers.filter((u: any) => !u.is_approved).length}</p></CardContent></Card>
                 </div>
 
                 {/* User type filter */}
@@ -420,7 +443,7 @@ const AdminDashboard = () => {
                                   {actionLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />} Approve
                                 </Button>
                               ) : (
-                                <Button size="sm" variant="outline" className="gap-1 text-red-600" onClick={() => handleUserAction('reject_user', profile.user_id)} disabled={actionLoading}>
+                                <Button size="sm" variant="outline" className="gap-1 text-red-600" onClick={() => handleUserAction('suspend_user', profile.user_id)} disabled={actionLoading}>
                                   <X className="w-3 h-3" /> Suspend
                                 </Button>
                               )}
@@ -552,14 +575,14 @@ const AdminDashboard = () => {
               <div>
                 <h4 className="font-medium mb-3">Submitted Documents</h4>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {reviewingVerification.id_front_url_signed && (
-                    <div><p className="text-xs text-muted-foreground mb-1">ID Front</p><img src={reviewingVerification.id_front_url_signed} alt="ID Front" className="w-full h-48 object-cover rounded-lg border" /></div>
+                  {reviewingVerification.id_front_url && (
+                    <div><p className="text-xs text-muted-foreground mb-1">ID Front</p><img src={reviewingVerification.id_front_url} alt="ID Front" className="w-full h-48 object-cover rounded-lg border" /></div>
                   )}
-                  {reviewingVerification.id_back_url_signed && (
-                    <div><p className="text-xs text-muted-foreground mb-1">ID Back</p><img src={reviewingVerification.id_back_url_signed} alt="ID Back" className="w-full h-48 object-cover rounded-lg border" /></div>
+                  {reviewingVerification.id_back_url && (
+                    <div><p className="text-xs text-muted-foreground mb-1">ID Back</p><img src={reviewingVerification.id_back_url} alt="ID Back" className="w-full h-48 object-cover rounded-lg border" /></div>
                   )}
-                  {reviewingVerification.selfie_url_signed && (
-                    <div><p className="text-xs text-muted-foreground mb-1">Selfie with ID</p><img src={reviewingVerification.selfie_url_signed} alt="Selfie" className="w-full h-48 object-cover rounded-lg border" /></div>
+                  {reviewingVerification.selfie_url && (
+                    <div><p className="text-xs text-muted-foreground mb-1">Selfie with ID</p><img src={reviewingVerification.selfie_url} alt="Selfie" className="w-full h-48 object-cover rounded-lg border" /></div>
                   )}
                 </div>
               </div>
@@ -580,7 +603,7 @@ const AdminDashboard = () => {
                       {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4" />} Reject
                     </Button>
                     <Button className="hero-gradient border-0 gap-1" onClick={() => handleVerificationAction('approve_verification')} disabled={actionLoading}>
-                      {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />} Approve Seller
+                      {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className "w-4 h-4" />} Approve Seller
                     </Button>
                   </DialogFooter>
                 </>

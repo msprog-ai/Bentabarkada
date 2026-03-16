@@ -1,5 +1,7 @@
-import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+
+import { useState, useEffect, useCallback } from 'react';
+import { db } from '@/integrations/firebase/client';
+import { doc, getDoc } from 'firebase/firestore';
 import { useAuth } from '@/hooks/useAuth';
 
 export const useAdmin = () => {
@@ -9,44 +11,53 @@ export const useAdmin = () => {
 
   useEffect(() => {
     const checkAdmin = async () => {
+      setLoading(true);
       if (!user) {
         setIsAdmin(false);
         setLoading(false);
         return;
       }
-      const { data } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.id)
-        .eq('role', 'admin')
-        .maybeSingle();
-      setIsAdmin(!!data);
-      setLoading(false);
+      try {
+        const roleDocRef = doc(db, 'user_roles', user.uid);
+        const roleDoc = await getDoc(roleDocRef);
+        setIsAdmin(roleDoc.exists() && roleDoc.data().role === 'admin');
+      } catch (error) {
+        console.error("Error checking admin status:", error);
+        setIsAdmin(false);
+      } finally {
+        setLoading(false);
+      }
     };
     checkAdmin();
   }, [user]);
 
-  const fetchAdminData = async (tab: string) => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) throw new Error('Not authenticated');
+  const fetchAdminData = useCallback(async (tab: string) => {
+    if (!user) throw new Error('Not authenticated');
 
-    const res = await fetch(
-      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-data?tab=${tab}`,
-      {
+    const token = await user.getIdToken();
+    
+    // TODO: Replace with your actual Firebase Cloud Function URL for fetching admin data.
+    // This function should handle authentication by verifying the bearer token.
+    const functionUrl = `https://your-region-your-project-id.cloudfunctions.net/adminData?tab=${tab}`;
+    
+    const res = await fetch(functionUrl, {
         headers: {
-          Authorization: `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
-          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
         },
       }
     );
+
     if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.error || 'Failed to fetch admin data');
+      const errorData = await res.json().catch(() => ({ error: 'Failed to fetch admin data with no error body.' }));
+      throw new Error(errorData.error || 'Failed to fetch admin data');
     }
+    
     const result = await res.json();
+    // Assuming the cloud function returns data in a { data: ... } object, similar to the Supabase function.
+    // Adjust if your function returns the data directly.
     return result.data;
-  };
+  }, [user]);
 
   return { isAdmin, loading, fetchAdminData };
 };

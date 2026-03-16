@@ -1,5 +1,7 @@
+
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/integrations/firebase/client';
+import { collection, query, where, orderBy, getDocs, documentId } from 'firebase/firestore';
 import { ListingItem } from '@/types/marketplace';
 
 export interface Profile {
@@ -14,50 +16,57 @@ export const useListings = () => {
 
   const fetchListings = async () => {
     try {
-      const { data: dbListings, error } = await supabase
-        .from('listings')
-        .select('*')
-        .eq('approval_status', 'approved')
-        .order('created_at', { ascending: false });
+      setLoading(true);
+      const listingsRef = collection(db, 'listings');
+      const q = query(listingsRef, where('approval_status', '==', 'approved'), orderBy('created_at', 'desc'));
+      const querySnapshot = await getDocs(q);
 
-      if (error) {
-        console.error('Error fetching listings:', error);
-        return;
-      }
+      const dbListings = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-      if (dbListings && dbListings.length > 0) {
-        // Fetch profiles for all listing users
-        const userIds = [...new Set(dbListings.map(l => l.user_id))];
-        const { data: profiles } = await supabase
-          .from('profiles_public' as any)
-          .select('user_id, display_name, avatar_url, rating')
-          .in('user_id', userIds) as { data: { user_id: string; display_name: string; avatar_url: string; rating: number }[] | null };
+      if (dbListings.length > 0) {
+        const userIds = [...new Set(dbListings.map(l => l.user_id))].filter(id => id);
 
-        const profileMap = new Map(profiles?.map((p: any) => [p.user_id, p]) || []);
+        if (userIds.length > 0) {
+            const profilesRef = collection(db, 'profiles');
+            const profilesQuery = query(profilesRef, where(documentId(), 'in', userIds));
+            const profilesSnapshot = await getDocs(profilesQuery);
 
-        const transformedListings: ListingItem[] = dbListings.map((listing) => {
-          const profile = profileMap.get(listing.user_id) as Profile | undefined;
-          return {
-            id: listing.id,
-            title: listing.title,
-            description: listing.description,
-            price: Number(listing.price),
-            quantity: listing.quantity || 1,
-            category: listing.category,
-            condition: listing.condition as 'new' | 'like-new' | 'good' | 'fair',
-            location: listing.location,
-            image: listing.image_url || 'https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=400&h=400&fit=crop',
-            seller: {
-              id: listing.user_id,
-              name: profile?.display_name || 'Anonymous',
-              avatar: profile?.avatar_url || `https://i.pravatar.cc/100?u=${listing.user_id}`,
-              rating: profile?.rating != null ? Number(profile.rating) : 0,
-            },
-            createdAt: new Date(listing.created_at),
-          };
-        });
+            const profileMap = new Map<string, Profile>();
+            profilesSnapshot.forEach(doc => {
+                const data = doc.data();
+                profileMap.set(doc.id, {
+                    display_name: data.display_name || 'Anonymous',
+                    avatar_url: data.avatar_url || null,
+                    rating: data.rating != null ? Number(data.rating) : 0,
+                });
+            });
 
-        setListings(transformedListings);
+            const transformedListings: ListingItem[] = dbListings.map((listing: any) => {
+              const profile = profileMap.get(listing.user_id);
+              return {
+                id: listing.id,
+                title: listing.title,
+                description: listing.description,
+                price: Number(listing.price),
+                quantity: listing.quantity || 1,
+                category: listing.category,
+                condition: listing.condition as 'new' | 'like-new' | 'good' | 'fair',
+                location: listing.location,
+                image: listing.image_url || 'https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=400&h=400&fit=crop',
+                seller: {
+                  id: listing.user_id,
+                  name: profile?.display_name || 'Anonymous',
+                  avatar: profile?.avatar_url || `https://i.pravatar.cc/100?u=${listing.user_id}`,
+                  rating: profile?.rating || 0,
+                },
+                createdAt: listing.created_at.toDate(), // Convert Firestore Timestamp to Date
+              };
+            });
+            setListings(transformedListings);
+        } else {
+             setListings([]);
+        }
+
       } else {
         setListings([]);
       }
@@ -74,4 +83,3 @@ export const useListings = () => {
 
   return { listings, loading, refetch: fetchListings };
 };
-

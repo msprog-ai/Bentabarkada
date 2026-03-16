@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, MapPin, CreditCard, Truck, Plus, Check, Upload, AlertCircle, Clock } from 'lucide-react';
@@ -10,7 +11,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useAuth } from '@/hooks/useAuth';
 import { useCart } from '@/hooks/useCart';
 import { useOrders, Address } from '@/hooks/useOrders';
-import { supabase } from '@/integrations/supabase/client';
+import { db, storage, functions } from '@/integrations/firebase/client';
+import { httpsCallable } from 'firebase/functions';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { collection, addDoc, serverTimestamp, getDocs, query, where, doc, getDoc } from 'firebase/firestore';
 import { toast } from 'sonner';
 import { philippineCities, getDeliveryZoneByCity } from '@/data/philippineLocations';
 import CourierSelector, { Courier } from '@/components/CourierSelector';
@@ -27,7 +31,7 @@ const Checkout = () => {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const { cartItems, cartTotal, clearCart } = useCart();
-  const { addresses, deliveryZones, createAddress, createOrder } = useOrders();
+  const { addresses, deliveryZones, fetchAddresses } = useOrders();
 
   const [selectedAddress, setSelectedAddress] = useState<string>('');
   const [showAddressForm, setShowAddressForm] = useState(false);
@@ -90,33 +94,37 @@ const Checkout = () => {
   };
 
   const uploadPaymentProof = async (orderId: string, file: File): Promise<string> => {
+    if(!user) throw new Error("User not authenticated");
     const secureName = generateSecureFilename(file.name);
-    // Store in private bucket, organized by user ID
-    const path = `${user!.id}/${orderId}-${secureName}`;
-    const { error } = await supabase.storage
-      .from('payment-proofs')
-      .upload(path, file, { upsert: true });
-    if (error) throw error;
-    // Return the path (not public URL — will be accessed via signed URLs)
-    return path;
+    const storageRef = ref(storage, `payment-proofs/${user.uid}/${orderId}-${secureName}`);
+    await uploadBytes(storageRef, file);
+    return getDownloadURL(storageRef);
   };
 
   const handleAddAddress = async () => {
-    if (!newAddress.recipient_name || !newAddress.phone || !newAddress.city || !newAddress.complete_address) {
+    if (!user || !newAddress.recipient_name || !newAddress.phone || !newAddress.city || !newAddress.complete_address) {
       toast.error('Please fill in all required fields');
       return;
     }
-    const zoneName = getDeliveryZoneByCity(newAddress.city);
-    const zone = deliveryZones.find(z => z.name === zoneName);
-    const { data, error } = await createAddress({
-      ...newAddress,
-      delivery_zone_id: zone?.id,
-      is_default: addresses.length === 0,
-    });
-    if (!error && data) {
-      setSelectedAddress(data.id);
-      setShowAddressForm(false);
-      setNewAddress({ label: 'Home', recipient_name: '', phone: '', city: '', province: '', barangay: '', complete_address: '', postal_code: '' });
+    try {
+        const zoneName = getDeliveryZoneByCity(newAddress.city);
+        const zone = deliveryZones.find(z => z.name === zoneName);
+
+        await addDoc(collection(db, 'profiles', user.uid, 'addresses'), {
+            ...newAddress,
+            user_id: user.uid,
+            delivery_zone_id: zone?.id || null,
+            is_default: addresses.length === 0,
+            created_at: serverTimestamp(),
+        });
+
+        await fetchAddresses(); // Re-fetch addresses
+        setShowAddressForm(false);
+        setNewAddress({ label: 'Home', recipient_name: '', phone: '', city: '', province: '', barangay: '', complete_address: '', postal_code: '' });
+        toast.success("Address added!");
+    } catch (error: any) {
+        console.error("Error adding address:", error);
+        toast.error("Failed to add address: " + error.message);
     }
   };
 
@@ -129,76 +137,66 @@ const Checkout = () => {
     if (!selectedAddress) { toast.error('Please select a delivery address'); return; }
     if (!selectedCourierId) { toast.error('Please select a shipping option'); return; }
     if (cartItems.length === 0) { toast.error('Your cart is empty'); return; }
+    if (!user) { toast.error('You must be logged in to place an order'); return; }
 
-    // For non-COD, require proof
-    if (paymentMethod !== 'cod') {
-      if (!paymentProofFile) { toast.error('Please upload your payment proof/screenshot'); return; }
-      if (!paymentReference.trim()) { toast.error('Please enter your payment reference number'); return; }
+    if (paymentMethod !== 'cod' && !paymentProofFile) {
+        toast.error('Please upload your payment proof/screenshot');
+        return;
     }
 
     setIsSubmitting(true);
+    try {
+        let paymentProofUrl: string | undefined = undefined;
 
-    const itemsWithSellers = await Promise.all(
-      cartItems.map(async (item) => {
-        const { data } = await supabase
-          .from('listings')
-          .select('user_id')
-          .eq('id', item.listing_id)
-          .single();
-        return {
-          listing_id: item.listing_id,
-          quantity: item.quantity,
-          price: item.listing?.price || 0,
-          seller_id: data?.user_id || ''
-        };
-      })
-    );
+        // The callable function will create one order per seller.
+        const placeOrderFn = httpsCallable(functions, 'placeOrder');
 
-    const { error } = await createOrder(
-      itemsWithSellers,
-      paymentMethod as any,
-      selectedAddress,
-      deliveryFee,
-      notes || undefined,
-      undefined,
-      selectedCourierId || undefined,
-      selectedCourier?.name,
-      paymentMethod !== 'cod' ? paymentReference : undefined,
-    );
-
-    if (!error) {
-      // Upload payment proof if exists - we need to get the order IDs
-      // For simplicity, proof URL will be updated via a separate call
-      if (paymentProofFile && paymentMethod !== 'cod') {
-        // Get the latest orders to upload proof
-        const { data: latestOrders } = await supabase
-          .from('orders')
-          .select('id')
-          .eq('buyer_id', user!.id)
-          .order('created_at', { ascending: false })
-          .limit(itemsWithSellers.length);
-
-        if (latestOrders) {
-          for (const order of latestOrders) {
-            try {
-              const proofUrl = await uploadPaymentProof(order.id, paymentProofFile);
-              await supabase.from('orders').update({
-                payment_proof_url: proofUrl,
-                payment_reference: paymentReference,
-                payment_status: 'awaiting_review',
-              }).eq('id', order.id);
-            } catch (err) {
-              console.error('Error uploading proof:', err);
-            }
-          }
+        // We create a temporary ID for the proof upload if needed
+        const tempOrderId = doc(collection(db, 'orders')).id;
+        if (paymentProofFile && paymentMethod !== 'cod') {
+            paymentProofUrl = await uploadPaymentProof(tempOrderId, paymentProofFile);
         }
-      }
 
-      await clearCart();
-      navigate('/profile?tab=orders');
+        const itemsWithSellers = await Promise.all(
+            cartItems.map(async (item) => {
+                const listingDoc = await getDoc(doc(db, 'listings', item.listing_id));
+                const seller_id = listingDoc.data()?.user_id || '';
+                return {
+                    listing_id: item.listing_id,
+                    quantity: item.quantity,
+                    price: item.listing?.price || 0,
+                    seller_id,
+                };
+            })
+        );
+
+        if (itemsWithSellers.some(item => !item.seller_id)) {
+            throw new Error("Could not verify seller for all items. Please try again.");
+        }
+
+        await placeOrderFn({
+            items: itemsWithSellers,
+            payment_method: paymentMethod,
+            address_id: selectedAddress,
+            delivery_fee: deliveryFee,
+            notes: sanitizeInput(notes) || null,
+            courier_id: selectedCourierId,
+            courier_name: selectedCourier?.name,
+            payment_reference: paymentMethod !== 'cod' ? sanitizeInput(paymentReference) : null,
+            payment_proof_url: paymentProofUrl,
+            temp_order_id: tempOrderId, // Pass temp ID for linking
+        });
+
+        await clearCart();
+        toast.success("Order placed successfully! Track it in your profile.");
+        navigate('/profile?tab=orders');
+
+    } catch (error: any) {
+        console.error('Order placement error:', error);
+        toast.error(error.message || 'Failed to place order. Please try again.');
+    } finally {
+        setIsSubmitting(false);
     }
-
-    setIsSubmitting(false);
   };
 
   if (authLoading) {
@@ -209,7 +207,7 @@ const Checkout = () => {
     );
   }
 
-  if (cartItems.length === 0) {
+  if (cartItems.length === 0 && !isSubmitting) {
     return (
       <div className="min-h-screen bg-background">
         <div className="container mx-auto px-4 py-8">
@@ -460,7 +458,7 @@ const Checkout = () => {
               <div className="space-y-4 mb-6">
                 {cartItems.map((item) => (
                   <div key={item.id} className="flex gap-3">
-                    <img src={item.listing?.image} alt={item.listing?.title} className="w-16 h-16 rounded-lg object-cover" />
+                    <img src={item.listing?.image_url} alt={item.listing?.title} className="w-16 h-16 rounded-lg object-cover" />
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-sm truncate">{item.listing?.title}</p>
                       <p className="text-sm text-muted-foreground">Qty: {item.quantity}</p>
@@ -494,7 +492,7 @@ const Checkout = () => {
 
               <Button
                 onClick={handlePlaceOrder}
-                disabled={isSubmitting || !selectedAddress}
+                disabled={isSubmitting || !selectedAddress || !selectedCourierId}
                 className="w-full mt-4 hero-gradient border-0 gap-2"
               >
                 {isSubmitting ? 'Processing...' : <><Check className="w-4 h-4" /> Place Order</>}

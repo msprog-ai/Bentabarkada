@@ -1,7 +1,11 @@
+
 import { useState, useEffect } from 'react';
 import bentaBarkadaLogo from '@/assets/bentabarkada-logo.png';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
+import { auth, db, storage } from '@/integrations/firebase/client';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, updateProfile } from 'firebase/auth';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -74,12 +78,9 @@ const Auth = () => {
 
   const uploadIdFile = async (userId: string, file: File): Promise<string> => {
     const secureName = generateSecureFilename(file.name);
-    const path = `${userId}/${secureName}`;
-    const { error } = await supabase.storage
-      .from('verification-documents')
-      .upload(path, file, { upsert: true });
-    if (error) throw error;
-    return path;
+    const storageRef = ref(storage, `verification-documents/${userId}/${secureName}`);
+    await uploadBytes(storageRef, file);
+    return await getDownloadURL(storageRef);
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -96,37 +97,28 @@ const Auth = () => {
       emailSchema.parse(email);
       passwordSchema.parse(password);
 
-      const { error, data: signInData } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) {
-        toast.error(error.message.includes('Invalid login credentials') ? 'Invalid email or password' : error.message);
-        return;
-      }
+      const { user } = await signInWithEmailAndPassword(auth, email, password);
 
       // Check approval
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('is_approved')
-        .eq('user_id', signInData.user.id)
-        .maybeSingle();
-
-      if (profile && !profile.is_approved) {
-        const { data: roleData } = await supabase
-          .from('user_roles')
-          .select('role')
-          .eq('user_id', signInData.user.id)
-          .eq('role', 'admin')
-          .maybeSingle();
-
-        if (!roleData) {
-          await supabase.auth.signOut();
-          toast.error('Your account is pending admin approval. Please wait for approval before signing in.');
-          return;
+      const profileDoc = await getDoc(doc(db, 'profiles', user.uid));
+      if (profileDoc.exists() && !profileDoc.data().is_approved) {
+        const rolesDoc = await getDoc(doc(db, 'user_roles', user.uid));
+        if (!rolesDoc.exists() || rolesDoc.data().role !== 'admin') {
+            await auth.signOut();
+            toast.error('Your account is pending admin approval. Please wait for approval before signing in.');
+            return;
         }
       }
       toast.success('Welcome back!');
       navigate('/');
-    } catch (error) {
-      if (error instanceof z.ZodError) toast.error(error.errors[0].message);
+    } catch (error: any) {
+        if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+            toast.error('Invalid email or password');
+        } else if (error instanceof z.ZodError) {
+            toast.error(error.errors[0].message);
+        } else {
+            toast.error(error.message);
+        }
     } finally {
       setLoading(false);
     }
@@ -143,33 +135,26 @@ const Auth = () => {
       if (password !== confirmPassword) throw new Error('Passwords do not match');
       if (checkPasswordStrength(password).score < 2) throw new Error('Please use a stronger password');
 
-      const { error, data } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/`,
-          data: { display_name: fullName },
-        },
+      const { user } = await createUserWithEmailAndPassword(auth, email, password);
+      await updateProfile(user, { displayName: fullName });
+
+      await setDoc(doc(db, 'profiles', user.uid), {
+        phone,
+        user_type: 'buyer',
+        display_name: fullName,
+        is_approved: false, // Or true if buyers are approved by default
       });
-      if (error) {
-        toast.error(error.message.includes('already registered') ? 'This email is already registered.' : error.message);
-        return;
-      }
 
-      // Update profile with phone and user_type
-      if (data.user) {
-        await supabase.from('profiles').update({
-          phone,
-          user_type: 'buyer',
-          display_name: fullName,
-        }).eq('user_id', data.user.id);
-      }
-
-      toast.success('Account created! Please check your email to verify. Your account will need admin approval.');
+      toast.success('Account created! Your account will need admin approval.');
       setMode('login');
     } catch (error: any) {
-      if (error instanceof z.ZodError) toast.error(error.errors[0].message);
-      else toast.error(error.message);
+        if (error.code === 'auth/email-already-in-use') {
+            toast.error('This email is already registered.');
+        } else if (error instanceof z.ZodError) {
+            toast.error(error.errors[0].message);
+        } else {
+            toast.error(error.message);
+        }
     } finally {
       setLoading(false);
     }
@@ -190,49 +175,40 @@ const Auth = () => {
       if (!idFile) throw new Error('Please upload your government ID');
       if (!sanitizeInput(address).trim()) throw new Error('Address is required');
 
-      const { error, data } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/`,
-          data: { display_name: fullName },
-        },
+      const { user } = await createUserWithEmailAndPassword(auth, email, password);
+      await updateProfile(user, { displayName: fullName });
+
+      const idUrl = await uploadIdFile(user.uid, idFile);
+
+      await setDoc(doc(db, 'profiles', user.uid), {
+        phone,
+        user_type: 'seller',
+        display_name: fullName,
+        is_approved: false,
       });
-      if (error) {
-        toast.error(error.message.includes('already registered') ? 'This email is already registered.' : error.message);
-        return;
-      }
 
-      if (data.user) {
-        // Update profile
-        await supabase.from('profiles').update({
-          phone,
-          user_type: 'seller',
-          display_name: fullName,
-        }).eq('user_id', data.user.id);
+      await setDoc(doc(db, 'seller_verifications', user.uid), {
+        user_id: user.uid,
+        full_name: fullName,
+        phone,
+        address,
+        id_type: idType,
+        id_front_url: idUrl,
+        shop_name: shopName,
+        social_link: socialLink || null,
+        status: 'pending',
+      });
 
-        // Upload ID
-        const idPath = await uploadIdFile(data.user.id, idFile);
-
-        // Create seller verification
-        await supabase.from('seller_verifications').insert({
-          user_id: data.user.id,
-          full_name: fullName,
-          phone,
-          address,
-          id_type: idType,
-          id_front_url: idPath,
-          shop_name: shopName,
-          social_link: socialLink || null,
-          status: 'pending',
-        });
-      }
-
-      toast.success('Seller account created! Please verify your email. Your account will be reviewed by our admin team.');
+      toast.success('Seller account created! Your account will be reviewed by our admin team.');
       setMode('login');
     } catch (error: any) {
-      if (error instanceof z.ZodError) toast.error(error.errors[0].message);
-      else toast.error(error.message);
+        if (error.code === 'auth/email-already-in-use') {
+            toast.error('This email is already registered.');
+        } else if (error instanceof z.ZodError) {
+            toast.error(error.errors[0].message);
+        } else {
+            toast.error(error.message);
+        }
     } finally {
       setLoading(false);
     }
@@ -243,13 +219,14 @@ const Auth = () => {
     setLoading(true);
     try {
       emailSchema.parse(email);
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth?mode=reset`,
-      });
-      if (error) toast.error(error.message);
-      else setMode('reset-sent');
-    } catch (error) {
-      if (error instanceof z.ZodError) toast.error(error.errors[0].message);
+      await sendPasswordResetEmail(auth, email);
+      setMode('reset-sent');
+    } catch (error: any) {
+        if (error instanceof z.ZodError) {
+            toast.error(error.errors[0].message);
+        } else {
+            toast.error(error.message);
+        }
     } finally {
       setLoading(false);
     }

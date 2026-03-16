@@ -1,7 +1,0 @@
-project_id = "kzlpvyiipmnksrdsqmfo"
-
-[functions.chat]
-verify_jwt = false
-
-[functions.seller-chat]
-verify_jwt = false
