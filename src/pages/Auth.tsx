@@ -381,6 +381,11 @@ const Auth = () => {
               <PasswordInput value={confirmPassword} onChange={setConfirmPassword} placeholder="Confirm password" />
             </div>
 
+            <p className="text-xs text-muted-foreground">
+              By creating an account, you agree to our{' '}
+              <a href="/privacy" target="_blank" className="text-primary hover:underline">Privacy Policy</a>.
+            </p>
+
             <Button type="submit" className="w-full hero-gradient border-0" disabled={loading}>
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Create Buyer Account'}
             </Button>
