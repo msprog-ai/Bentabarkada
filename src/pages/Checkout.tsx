@@ -14,6 +14,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { philippineCities, getDeliveryZoneByCity } from '@/data/philippineLocations';
 import CourierSelector, { Courier } from '@/components/CourierSelector';
+import { validateFile, generateSecureFilename, sanitizeInput } from '@/lib/security';
 
 const PAYMENT_METHODS = [
   { id: 'gcash', name: 'GCash', desc: 'Send payment via GCash', icon: '💚' },
