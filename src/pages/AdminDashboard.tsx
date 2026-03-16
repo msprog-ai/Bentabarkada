@@ -205,6 +205,7 @@ const AdminDashboard = () => {
             <TabsTrigger value="listings" className="gap-2"><ShoppingBag className="w-4 h-4" /> Listings</TabsTrigger>
             <TabsTrigger value="users" className="gap-2"><Users className="w-4 h-4" /> Users</TabsTrigger>
             <TabsTrigger value="verifications" className="gap-2"><UserCheck className="w-4 h-4" /> Seller Approvals</TabsTrigger>
+            <TabsTrigger value="audit_logs" className="gap-2"><ScrollText className="w-4 h-4" /> Audit Logs</TabsTrigger>
           </TabsList>
 
           {/* Orders Tab */}
