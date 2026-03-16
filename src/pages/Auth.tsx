@@ -138,9 +138,10 @@ const Auth = () => {
     try {
       emailSchema.parse(email);
       passwordSchema.parse(password);
-      if (!fullName.trim()) throw new Error('Full name is required');
+      if (!sanitizeInput(fullName).trim()) throw new Error('Full name is required');
       phoneSchema.parse(phone);
       if (password !== confirmPassword) throw new Error('Passwords do not match');
+      if (checkPasswordStrength(password).score < 2) throw new Error('Please use a stronger password');
 
       const { error, data } = await supabase.auth.signUp({
         email,
