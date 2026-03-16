@@ -450,8 +450,8 @@ const Auth = () => {
                 ) : (
                   <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-border rounded-lg cursor-pointer hover:border-primary/50 transition-colors">
                     <Upload className="w-6 h-6 text-muted-foreground mb-2" />
-                    <span className="text-sm text-muted-foreground">Click to upload (max 5MB)</span>
-                    <input type="file" accept="image/*" onChange={handleIdFileChange} className="hidden" />
+                    <span className="text-sm text-muted-foreground">Click to upload (JPG, PNG, PDF — max 5MB)</span>
+                    <input type="file" accept=".jpg,.jpeg,.png,.webp,.pdf" onChange={handleIdFileChange} className="hidden" />
                   </label>
                 )}
               </div>
