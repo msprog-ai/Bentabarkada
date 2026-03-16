@@ -464,7 +464,7 @@ const Auth = () => {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label>Password *</Label>
-                <PasswordInput value={password} onChange={setPassword} />
+                <PasswordInput value={password} onChange={setPassword} showStrength />
               </div>
               <div>
                 <Label>Confirm Password *</Label>
