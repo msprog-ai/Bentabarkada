@@ -566,6 +566,10 @@ const Auth = () => {
         <div className="bg-card p-6 sm:p-8 rounded-2xl card-shadow">
           {renderContent()}
         </div>
+        <p className="text-center text-xs text-muted-foreground mt-4">
+          By using BentaBarkada, you agree to our{' '}
+          <a href="/privacy" className="text-primary hover:underline">Privacy Policy</a>
+        </p>
       </div>
     </div>
   );
