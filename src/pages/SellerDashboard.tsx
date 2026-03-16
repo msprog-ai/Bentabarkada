@@ -284,7 +284,7 @@ const SellerDashboard = () => {
                             )}
                             {order.payment_proof_url && (
                               <div className="mt-2">
-                                <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1"><Image className="w-3 h-3" /> Payment Proof</p>
+                                <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1"><ImageIcon className="w-3 h-3" /> Payment Proof</p>
                                 <img src={order.payment_proof_url} alt="Payment proof" className="w-full max-h-32 object-contain rounded border" />
                               </div>
                             )}
